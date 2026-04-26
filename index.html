@@ -497,20 +497,25 @@ footer { background: linear-gradient(160deg, #c8d4e8 0%, #bfcbdf 100%); border-t
     <div class="section-eyebrow">Schedule Service</div>
     <h1>Let's Get You Fixed Up</h1>
     <p>Fill in your details and we'll confirm your appointment within the hour.</p>
-    <form action="https://formspree.io/f/xrerdoel" method="POST">
-      <input type="hidden" name="_subject" value="New Booking - Fennec Appliance Repair">
-      <input type="hidden" name="_next" value="https://the-fennec.com">
+    <div id="booking-success" style="display:none; background:linear-gradient(135deg,#16a34a,#15803d); color:#fff; border-radius:16px; padding:32px 24px; text-align:center; margin-bottom:20px;">
+      <div style="font-size:52px; margin-bottom:12px;">✓</div>
+      <h3 style="font-family:'Syne',sans-serif; font-size:22px; font-weight:800; margin-bottom:8px;">Booking Received!</h3>
+      <p style="font-size:15px; opacity:0.9; margin-bottom:20px;">We'll call you back at the number you provided within the hour.</p>
+      <a href="#" onclick="showHome(); return false;" class="btn-primary" style="background:rgba(255,255,255,0.2); box-shadow:none;">Back to Home</a>
+    </div>
+
+    <form id="booking-form" onsubmit="submitForm(event)">
       <div class="form-group">
         <label class="form-label">Your Name</label>
-        <input class="form-input" type="text" name="name" placeholder="Jane Smith" required>
+        <input class="form-input" type="text" name="name" id="f-name" placeholder="Jane Smith" required>
       </div>
       <div class="form-group">
         <label class="form-label">Phone Number</label>
-        <input class="form-input" type="tel" name="phone" placeholder="(973) 000-0000" required>
+        <input class="form-input" type="tel" name="phone" id="f-phone" placeholder="(973) 000-0000" required>
       </div>
       <div class="form-group">
         <label class="form-label">Appliance Type</label>
-        <select class="form-input" name="appliance" required style="appearance:none;">
+        <select class="form-input" name="appliance" id="f-appliance" required style="appearance:none;">
           <option value="">Select an appliance...</option>
           <option>Refrigerator</option>
           <option>Oven / Range</option>
@@ -522,9 +527,10 @@ footer { background: linear-gradient(160deg, #c8d4e8 0%, #bfcbdf 100%); border-t
       </div>
       <div class="form-group" style="margin-bottom:28px;">
         <label class="form-label">Describe the Issue</label>
-        <textarea class="form-input" name="issue" placeholder="e.g. My fridge stopped cooling overnight..." rows="4" required style="resize:none;"></textarea>
+        <textarea class="form-input" name="issue" id="f-issue" placeholder="e.g. My fridge stopped cooling overnight..." rows="4" required style="resize:none;"></textarea>
       </div>
-      <button type="submit" class="btn-primary" style="margin-bottom:12px;">
+      <div id="form-error" style="display:none; color:#dc2626; font-size:14px; margin-bottom:16px; padding:12px 16px; background:rgba(220,38,38,0.1); border-radius:10px; border:1px solid rgba(220,38,38,0.3);"></div>
+      <button type="submit" id="submit-btn" class="btn-primary" style="margin-bottom:12px;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         Send Service Request
       </button>
@@ -634,6 +640,42 @@ function showBooking() {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('booking-page').classList.add('active');
   window.scrollTo(0, 0);
+}
+
+async function submitForm(e) {
+  e.preventDefault();
+  const btn = document.getElementById('submit-btn');
+  const errEl = document.getElementById('form-error');
+  errEl.style.display = 'none';
+  btn.innerHTML = 'Sending...';
+  btn.disabled = true;
+
+  const data = {
+    name: document.getElementById('f-name').value,
+    phone: document.getElementById('f-phone').value,
+    appliance: document.getElementById('f-appliance').value,
+    issue: document.getElementById('f-issue').value
+  };
+
+  try {
+    const res = await fetch('https://formspree.io/f/xrerdoel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (res.ok) {
+      document.getElementById('booking-form').style.display = 'none';
+      document.getElementById('booking-success').style.display = 'block';
+      window.scrollTo(0, 0);
+    } else {
+      throw new Error('failed');
+    }
+  } catch(err) {
+    errEl.textContent = 'Something went wrong. Please call us at (973) 548-8572.';
+    errEl.style.display = 'block';
+    btn.innerHTML = 'Send Service Request';
+    btn.disabled = false;
+  }
 }
 </script>
 </body>
