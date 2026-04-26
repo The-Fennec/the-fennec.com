@@ -649,7 +649,7 @@ function showBooking() {
   window.scrollTo(0, 0);
 }
 
-const SHEET_URL = 'https://script.google.com/macros/s/AKfycbyPqltQvG7jnwg0rjOXQOcm_gjgS4B5JFRVk3sJvAsOHjDCQS6JYL3arwAf_SuVxP5N/exec';
+const FORMSPREE_URL = 'https://formspree.io/f/xrerdoel';
 
 async function submitBooking() {
   const name = document.getElementById('b-name').value.trim();
@@ -671,24 +671,25 @@ async function submitBooking() {
   btn.disabled = true;
 
   try {
-    const date = new Date().toLocaleString();
-    const params = new URLSearchParams({ name, phone, appliance, issue, date });
-    
-    const img = new Image();
-    img.src = SHEET_URL + '?' + params.toString();
-    
-    await fetch(SHEET_URL + '?' + params.toString(), {
-      method: 'GET',
-      mode: 'no-cors'
+    const response = await fetch(FORMSPREE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ name, phone, appliance, issue, date: new Date().toLocaleString() })
     });
 
-    document.getElementById('booking-form-wrap').style.display = 'none';
-    document.getElementById('booking-success').style.display = 'block';
-    setTimeout(() => { showHome(); }, 3000);
+    if (response.ok) {
+      document.getElementById('booking-form-wrap').style.display = 'none';
+      document.getElementById('booking-success').style.display = 'block';
+      setTimeout(() => { showHome(); }, 3000);
+    } else {
+      throw new Error('Failed');
+    }
   } catch(e) {
-    document.getElementById('booking-form-wrap').style.display = 'none';
-    document.getElementById('booking-success').style.display = 'block';
-    setTimeout(() => { showHome(); }, 3000);
+    errEl.textContent = 'Something went wrong. Please call us at (973) 548-8572.';
+    errEl.style.display = 'block';
+    btn.innerHTML = 'Send Service Request';
+    btn.style.background = '';
+    btn.disabled = false;
   }
 }
 </script>
