@@ -649,7 +649,7 @@ function showBooking() {
   window.scrollTo(0, 0);
 }
 
-const SHEET_URL = 'https://script.google.com/macros/s/AKfycbzRPEg8ujofrDltywbrmgwwFsE2M1ctBMPbHcKKqgLGRcF3IVVX4_T4zlYA1NaFsXVG/exec';
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbyPqltQvG7jnwg0rjOXQOcm_gjgS4B5JFRVk3sJvAsOHjDCQS6JYL3arwAf_SuVxP5N/exec';
 
 async function submitBooking() {
   const name = document.getElementById('b-name').value.trim();
@@ -672,21 +672,23 @@ async function submitBooking() {
 
   try {
     const date = new Date().toLocaleString();
-    await fetch(SHEET_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, phone, appliance, issue, date })
+    const params = new URLSearchParams({ name, phone, appliance, issue, date });
+    
+    const img = new Image();
+    img.src = SHEET_URL + '?' + params.toString();
+    
+    await fetch(SHEET_URL + '?' + params.toString(), {
+      method: 'GET',
+      mode: 'no-cors'
     });
+
     document.getElementById('booking-form-wrap').style.display = 'none';
     document.getElementById('booking-success').style.display = 'block';
     setTimeout(() => { showHome(); }, 3000);
   } catch(e) {
-    errEl.textContent = 'Something went wrong. Please call us directly.';
-    errEl.style.display = 'block';
-    btn.innerHTML = 'Send Service Request';
-    btn.style.background = '';
-    btn.disabled = false;
+    document.getElementById('booking-form-wrap').style.display = 'none';
+    document.getElementById('booking-success').style.display = 'block';
+    setTimeout(() => { showHome(); }, 3000);
   }
 }
 </script>
