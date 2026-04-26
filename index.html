@@ -648,6 +648,47 @@ function showBooking() {
   document.getElementById('booking-page').classList.add('active');
   window.scrollTo(0, 0);
 }
+
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbzRPEg8ujofrDltywbrmgwwFsE2M1ctBMPbHcKKqgLGRcF3IVVX4_T4zlYA1NaFsXVG/exec';
+
+async function submitBooking() {
+  const name = document.getElementById('b-name').value.trim();
+  const phone = document.getElementById('b-phone').value.trim();
+  const appliance = document.getElementById('b-appliance').value;
+  const issue = document.getElementById('b-issue').value.trim();
+  const errEl = document.getElementById('booking-error');
+  const btn = document.getElementById('booking-submit-btn');
+
+  errEl.style.display = 'none';
+
+  if (!name) { errEl.textContent = 'Please enter your name.'; errEl.style.display = 'block'; return; }
+  if (!phone) { errEl.textContent = 'Please enter your phone number.'; errEl.style.display = 'block'; return; }
+  if (!appliance) { errEl.textContent = 'Please select an appliance type.'; errEl.style.display = 'block'; return; }
+  if (!issue) { errEl.textContent = 'Please describe the issue.'; errEl.style.display = 'block'; return; }
+
+  btn.innerHTML = 'Sending...';
+  btn.style.background = '#6b8fff';
+  btn.disabled = true;
+
+  try {
+    const date = new Date().toLocaleString();
+    await fetch(SHEET_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, phone, appliance, issue, date })
+    });
+    document.getElementById('booking-form-wrap').style.display = 'none';
+    document.getElementById('booking-success').style.display = 'block';
+    setTimeout(() => { showHome(); }, 3000);
+  } catch(e) {
+    errEl.textContent = 'Something went wrong. Please call us directly.';
+    errEl.style.display = 'block';
+    btn.innerHTML = 'Send Service Request';
+    btn.style.background = '';
+    btn.disabled = false;
+  }
+}
 </script>
 </body>
 </html>
