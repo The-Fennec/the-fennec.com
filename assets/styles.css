@@ -334,3 +334,57 @@ footer { background: linear-gradient(180deg, #e4e7ec 0%, #d8dce3 100%); color: v
 .call-bar { background: rgba(255,255,255,0.97); border-top: 1px solid #c9ced6; box-shadow: 0 -6px 20px rgba(11,19,36,0.08); }
 .call-bar .cb-call { background: var(--ink); color: #fff; }
 .call-bar .cb-book { background: var(--metal); color: var(--ink); border: 1px solid #aeb5c0; }
+
+/* ===== Calmer version: smaller type, less spacing, no shine ===== */
+:root {
+  --metal: linear-gradient(180deg, #f3f4f6 0%, #e3e6eb 100%);
+  --metal-hover: linear-gradient(180deg, #f8f9fa 0%, #eaedf1 100%);
+  --brushed: #f1f3f6;
+}
+.hero { background: #f1f3f6; padding: 40px 20px 36px; }
+.hero::after { height: 1px; background: #c9ced6; }
+.hero h1 { font-size: 34px; line-height: 1.15; margin-bottom: 14px; }
+.gradient-text { background: none; color: var(--steel-dark); -webkit-text-fill-color: currentColor; }
+.hero-sub { font-size: 16px; margin-bottom: 18px; }
+.hero-points { padding-top: 16px; margin-bottom: 24px; gap: 8px; }
+.status-pill { letter-spacing: 0.08em; margin-bottom: 16px; }
+
+.btn-primary, .btn-secondary { text-transform: none; letter-spacing: 0.01em; font-size: 16px; padding: 15px 24px; }
+.btn-primary { box-shadow: none; }
+.btn-secondary, .hero .btn-secondary, .cta-block .btn-secondary { box-shadow: none; }
+.call-bar a { text-transform: none; letter-spacing: 0.01em; font-size: 15px; }
+.nav-call { letter-spacing: 0.01em; }
+.nav-links a { letter-spacing: 0.06em; }
+
+.section { padding: 40px 20px; }
+.section-title { font-size: 28px; }
+.section-lead { margin-bottom: 24px; }
+.section-eyebrow { letter-spacing: 0.12em; }
+.section-eyebrow::before { height: 1px; background: #aeb5c0; box-shadow: none; width: 24px; }
+.more-link, .urgency, .footer-section h4, .form-label { letter-spacing: 0.08em; }
+.chip { background: #fff; font-size: 16px; padding: 14px 8px; }
+.chip:last-child { letter-spacing: 0.06em; }
+.steps li::before { font-size: 24px; }
+.cta-block { padding: 44px 20px; }
+.cta-block h2 { font-size: 28px; }
+.cta-block::before { height: 1px; background: #c9ced6; }
+.trust-card { padding: 18px 14px; }
+.trust-card h3 { font-size: 16px; }
+.service-card img, .service-card .ph-img { filter: none; }
+
+@media (min-width: 768px) {
+  .hero { padding: 64px 48px 56px; }
+  .hero h1 { font-size: 48px; max-width: 18ch; }
+  .hero-sub { font-size: 18px; }
+  .btn-primary, .btn-secondary { min-width: 220px; }
+  .section { padding: 60px 48px; }
+  .section-title { font-size: 36px; }
+  .trust-card { padding: 26px 22px; }
+  .cta-block { padding: 64px 48px; }
+  .cta-block h2 { font-size: 36px; }
+}
+@media (min-width: 1100px) {
+  .hero { padding: 72px 80px 64px; }
+  .hero h1 { font-size: 54px; }
+  .section { padding: 68px 80px; }
+}
