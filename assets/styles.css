@@ -11,7 +11,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body {
-  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
   background: linear-gradient(160deg, #c8d4e8 0%, #d4ddf0 50%, #bfcbdf 100%);
   color: var(--dark);
   overflow-x: hidden;
@@ -19,7 +19,7 @@ body {
 }
 a { color: inherit; }
 img { max-width: 100%; }
-h1, h2, h3, .brand-font { font-family: 'Syne', system-ui, sans-serif; }
+h1, h2, h3, .brand-font { font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif; }
 
 /* ---------- Nav ---------- */
 .site-nav {
@@ -32,7 +32,7 @@ h1, h2, h3, .brand-font { font-family: 'Syne', system-ui, sans-serif; }
 }
 .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; min-width: 0; }
 .nav-logo img { width: 40px; height: 40px; object-fit: contain; flex-shrink: 0; }
-.nav-logo-text { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: var(--dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav-logo-text { font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; font-size: 16px; font-weight: 700; color: var(--dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .nav-logo-text span { color: var(--blue); }
 @media (max-width: 420px) { .nav-logo img { width: 34px; height: 34px; } .nav-logo-text { font-size: 14px; } .nav-call { padding: 9px 13px; font-size: 13px; } }
 .nav-links { display: none; list-style: none; gap: 22px; }
@@ -51,7 +51,7 @@ h1, h2, h3, .brand-font { font-family: 'Syne', system-ui, sans-serif; }
 .btn-primary, .btn-secondary {
   display: flex; align-items: center; justify-content: center; gap: 8px;
   width: 100%; border-radius: 16px; padding: 18px 24px;
-  font-family: 'DM Sans', sans-serif; font-size: 17px; font-weight: 600;
+  font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; font-size: 17px; font-weight: 600;
   cursor: pointer; text-decoration: none; transition: background 0.2s, transform 0.15s;
 }
 .btn-primary { background: var(--blue); color: #fff; border: none; box-shadow: 0 4px 20px rgba(26,62,207,0.25); }
@@ -160,7 +160,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
 .form-group { margin-bottom: 16px; }
 .form-label { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 8px; }
 .form-label .opt { font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--gray); }
-.form-input { width: 100%; border: 1.5px solid var(--line); border-radius: 12px; padding: 14px 16px; font-family: 'DM Sans', sans-serif; font-size: 16px; color: var(--dark); outline: none; background: rgba(255,255,255,0.85); transition: border-color 0.2s; }
+.form-input { width: 100%; border: 1.5px solid var(--line); border-radius: 12px; padding: 14px 16px; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; font-size: 16px; color: var(--dark); outline: none; background: rgba(255,255,255,0.85); transition: border-color 0.2s; }
 .form-input:focus { border-color: var(--blue); }
 select.form-input { appearance: none; }
 textarea.form-input { resize: vertical; min-height: 110px; }
@@ -181,7 +181,7 @@ textarea.form-input { resize: vertical; min-height: 110px; }
 footer { background: linear-gradient(160deg, #c8d4e8 0%, #bfcbdf 100%); border-top: 2px solid var(--line); padding: 30px 20px 22px; }
 .footer-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; text-decoration: none; }
 .footer-logo img { width: 36px; height: 36px; }
-.footer-logo-name { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: var(--navy); }
+.footer-logo-name { font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; font-size: 16px; font-weight: 700; color: var(--navy); }
 .footer-logo-name span { color: var(--blue); }
 .footer-tagline { font-size: 13px; color: #3a4a6a; line-height: 1.6; margin-bottom: 22px; }
 .footer-section { margin-bottom: 22px; }
@@ -277,3 +277,13 @@ footer { background: linear-gradient(160deg, #c8d4e8 0%, #bfcbdf 100%); border-t
 .call-bar .cb-book { background: var(--silver); color: var(--dark); border-color: #a3adbd; }
 footer { border-top: 0; position: relative; }
 footer::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--silver-line); }
+
+/* ===== Headline font ===== */
+h1, h2, h3, .section-title, .nav-logo-text, .footer-logo-name, .detail-nav-title {
+  font-family: 'Montserrat', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  letter-spacing: -0.01em;
+}
+.hero h1 { font-weight: 800; letter-spacing: -0.02em; }
+.section-title, .cta-block h2 { font-weight: 700; }
+.service-body h3, .trust-card h3, .problem-card h3, .area-card h3, .steps h3 { font-weight: 700; letter-spacing: 0; }
+.nav-logo-text, .footer-logo-name { font-weight: 700; letter-spacing: 0; }
