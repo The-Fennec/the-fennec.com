@@ -113,7 +113,7 @@ svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-widt
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { background: rgba(255,255,255,0.7); border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; font-size: 14px; font-weight: 500; }
 
-.area-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+.area-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; align-items: start; }
 .area-card { background: rgba(255,255,255,0.6); border: 1.5px solid #d8dfe9; border-radius: 18px; padding: 18px; }
 .area-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
 .area-card p { font-size: 14px; color: var(--gray); line-height: 1.6; }
@@ -224,7 +224,6 @@ footer { background: linear-gradient(160deg, #c8d4e8 0%, #bfcbdf 100%); border-t
   .section { padding: 52px 48px; }
   .section-title { font-size: 34px; }
   .services-grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 22px; }
-  .area-grid { grid-template-columns: repeat(2, 1fr); }
   .steps { grid-template-columns: repeat(3, 1fr); }
   .cta-block { margin: 16px 48px 40px; padding: 52px 48px; }
   .cta-block h2 { font-size: 38px; }
@@ -246,7 +245,6 @@ footer { background: linear-gradient(160deg, #c8d4e8 0%, #bfcbdf 100%); border-t
   .trust-section { padding: 52px 80px; }
   .section { padding: 64px 80px; }
   .services-grid { grid-template-columns: repeat(4, minmax(0,1fr)); gap: 20px; }
-  .area-grid { grid-template-columns: repeat(4, 1fr); }
   .problems-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
   .cta-block { margin: 20px 80px 52px; padding: 64px 80px; }
   .cta-block h2 { font-size: 44px; }
