@@ -100,6 +100,42 @@
   </ol>
   <div style="margin-top:22px"><div class="note-box"><strong>Good to know:</strong> we repair <strong>home</strong> appliances only — refrigerators, freezers, ice makers, wine coolers, washers, dryers, ovens, ranges, cooktops and dishwashers. We don't work on microwaves, countertop or small appliances, or commercial equipment.</div></div>
 </section>
+
+<section class="section alt" id="reviews" hidden>
+  <div class="section-eyebrow">Reviews</div>
+  <h2 class="section-title">What Customers Say</h2>
+  <div class="reviews-grid" id="reviews-list"></div>
+  <p style="margin-top:22px"><a href="/review/" class="more-link">Had a repair with us? Leave a review →</a></p>
+</section>
+<script>
+(function () {
+  var sec = document.getElementById('reviews'), list = document.getElementById('reviews-list');
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; }
+  fetch('https://script.google.com/macros/s/AKfycbyu14L-XmrgqKQSTzO4xk7Yy4jrgl8tPyLDW8sWm9mlVMXB7ceuyeJ0esyzXH55Xiyw/exec').then(function (r) { return r.json(); }).then(function (items) {
+    if (!Array.isArray(items) || !items.length) return;
+    items.forEach(function (it) {
+      var card = el('figure', 'review-card');
+      var n = Math.max(1, Math.min(5, Math.round(it.stars || 5)));
+      var st = el('div', 'review-stars', '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n));
+      st.setAttribute('aria-label', n + ' out of 5 stars');
+      card.appendChild(st);
+      card.appendChild(el('blockquote', 'review-text', it.review));
+      var who = it.name + (it.town ? ', ' + it.town : '');
+      var meta = el('figcaption', 'review-meta', who + (it.repaired ? ' · ' + it.repaired : '') + (it.date ? ' · ' + it.date : ''));
+      card.appendChild(meta);
+      if (it.reply) {
+        var rep = el('div', 'review-reply');
+        rep.appendChild(el('strong', '', 'Response from Fennec Appliance Repair'));
+        rep.appendChild(el('p', '', it.reply));
+        card.appendChild(rep);
+      }
+      list.appendChild(card);
+    });
+    sec.hidden = false;
+  }).catch(function () {});
+})();
+</script>
+
 </main>
 <section class="cta-block">
   <h2>Don't wait for a total breakdown.</h2>

@@ -287,3 +287,13 @@ h1, h2, h3, .section-title, .nav-logo-text, .footer-logo-name, .detail-nav-title
 .section-title, .cta-block h2 { font-weight: 700; }
 .service-body h3, .trust-card h3, .problem-card h3, .area-card h3, .steps h3 { font-weight: 700; letter-spacing: 0; }
 .nav-logo-text, .footer-logo-name { font-weight: 700; letter-spacing: 0; }
+
+/* ===== Customer reviews ===== */
+.reviews-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; align-items: start; }
+.review-card { margin: 0; background: rgba(255,255,255,0.75); border: 1.5px solid #c9d0db; border-radius: 18px; padding: 18px; }
+.review-stars { color: #f5a623; font-size: 18px; letter-spacing: 2px; margin-bottom: 8px; }
+.review-text { margin: 0 0 10px; font-size: 15px; line-height: 1.6; color: var(--dark); white-space: pre-line; }
+.review-meta { font-size: 13px; color: var(--gray); }
+.review-reply { margin-top: 12px; padding: 10px 12px; border-left: 3px solid #aab3c2; background: rgba(255,255,255,0.6); font-size: 14px; line-height: 1.5; }
+.review-reply strong { display: block; font-size: 12px; color: var(--blue); margin-bottom: 4px; }
+.review-reply p { margin: 0; color: var(--dark); }
