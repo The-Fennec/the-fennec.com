@@ -202,7 +202,7 @@ img{max-width:100%}
     <h1>Fennec Job Board</h1>
     <p>Type your username and your 6-digit PIN.</p>
     <label class="lbl" for="uname" style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)">Username</label>
-    <input id="uname" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Your first name">
+    <input id="uname" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Username">
     <label class="lbl" for="pin" style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)">PIN</label>
     <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="12" placeholder="••••••">
     <p class="err" id="login-err" hidden></p>
@@ -616,7 +616,7 @@ render();
 let unsubs=[],pick=null,publicNames={};
 function stopAll(){unsubs.forEach(u=>{try{u()}catch(e){}});unsubs=[]}
 function showLogin(){$('#login').hidden=false}
-/* Username = first name (or worker1 / worker2). Not case sensitive. */
+/* Usernames (not case sensitive): salah, mohamed / worker1, mahdi / worker2 */
 function whoFromName(v){const n=v.trim().toLowerCase();if(!n)return null;
   if(n==='salah')return 'owner';
   if(n===(publicNames.a||'mohamed').toLowerCase()||n==='mohamed'||n==='worker1')return 'a';
