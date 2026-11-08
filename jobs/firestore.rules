@@ -6,6 +6,7 @@ service cloud.firestore {
     function isOwner() { return email() == 'salah@the-fennec.com'; }
     function isWorker() { return email() in ['worker1@the-fennec.com', 'worker2@the-fennec.com']; }
     function isTeam() { return isOwner() || isWorker(); }
+    function myLetter() { return email() == 'worker1@the-fennec.com' ? 'a' : (email() == 'worker2@the-fennec.com' ? 'b' : 'none'); }
     function cfg() { return get(/databases/$(database)/documents/config/workers).data; }
     function closedStatus(d) { return d.get('status', '') in ['done', 'undone']; }
     // When a worker closes a job, the call fee and his % must match Salah's settings.
@@ -19,16 +20,18 @@ service cloud.firestore {
 
     // Worker first names for the login screen
     match /public/{docId} { allow read: if true; allow write: if isOwner(); }
-    // Settings: everyone on the team reads, only Salah changes
-    match /config/{docId} { allow read: if isTeam(); allow write: if isOwner(); }
+    // Settings (both workers' %): Salah only
+    match /config/{docId} { allow read, write: if isOwner(); }
+    // Each worker reads only his own % and call fee
+    match /team/{letter} { allow read: if isOwner() || myLetter() == letter; allow write: if isOwner(); }
     // Lost calls and payday: Salah only
     match /lost/{docId} { allow read, write: if isOwner(); }
     match /pay/{docId} { allow read, write: if isOwner(); }
-    // Jobs: team reads; workers add and update open jobs; finished jobs and deleting are Salah only
+    // Jobs: each worker sees and changes only his own open jobs; finished jobs and deleting are Salah only
     match /jobs/{jobId} {
-      allow read: if isTeam();
-      allow create: if isOwner() || (isWorker() && !closedStatus(request.resource.data));
-      allow update: if isOwner() || (isWorker() && !closedStatus(resource.data) && moneyOk(request.resource.data));
+      allow read: if isOwner() || (isWorker() && resource.data.worker == myLetter());
+      allow create: if isOwner() || (isWorker() && request.resource.data.get('worker', '') == myLetter() && !closedStatus(request.resource.data));
+      allow update: if isOwner() || (isWorker() && resource.data.get('worker', '') == myLetter() && request.resource.data.get('worker', '') == myLetter() && !closedStatus(resource.data) && moneyOk(request.resource.data));
       allow delete: if isOwner();
     }
   }

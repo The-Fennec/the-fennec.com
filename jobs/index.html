@@ -246,7 +246,7 @@ img{max-width:100%}
 <script type="module">
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import {initializeFirestore,persistentLocalCache,collection as fsCol,doc as fsDoc,setDoc,updateDoc,deleteDoc,onSnapshot,getDoc} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import {initializeFirestore,persistentLocalCache,collection as fsCol,doc as fsDoc,setDoc,updateDoc,deleteDoc,onSnapshot,getDoc,query,where} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 /* Firebase project fennec-jobs. This config is public by design; the logins and the database rules are the lock. */
 const app=initializeApp({apiKey:"AIzaSyCIRh114KrUBnrr3hiLMOVOSnQi7ih_--c",authDomain:"fennec-jobs.firebaseapp.com",projectId:"fennec-jobs",storageBucket:"fennec-jobs.firebasestorage.app",messagingSenderId:"774958070623",appId:"1:774958070623:web:4b54505bdb200728b914ea"});
@@ -305,11 +305,12 @@ function render(){
   const today=ymd(new Date());
   $('#date-input').value=S.day;
   $('#day-title').textContent=(S.day===today?'Today · ':'')+fmt(S.day,{weekday:'long',month:'long',day:'numeric'});
-  const shown=S.show==='both'?W:[S.show];
+  const shown=S.me?[S.me]:(S.show==='both'?W:[S.show]);
   const nNew=shown.reduce((t,w)=>t+count(S.day,w,NEW),0), nFin=shown.reduce((t,w)=>t+count(S.day,w,FIN),0);
   $('#day-sub').textContent=`${nNew} of ${shown.length*3} new jobs · ${nFin} of ${shown.length*3} finish visits`;
 
-  $('#tabs').innerHTML=[['both','Both workers'],['a',wname('a')],['b',wname('b')]].map(([k,l])=>`<button class="tab" data-show="${k}" aria-pressed="${S.show===k}">${esc(l)}</button>`).join('');
+  $('#tabs').hidden=!!S.me;
+  $('#tabs').innerHTML=S.me?'':[['both','Both workers'],['a',wname('a')],['b',wname('b')]].map(([k,l])=>`<button class="tab" data-show="${k}" aria-pressed="${S.show===k}">${esc(l)}</button>`).join('');
 
   const d=parse(S.day),mon=addDays(S.day,-((d.getDay()+6)%7));let wk='';
   for(let i=0;i<7;i++){const day=addDays(mon,i);
@@ -457,7 +458,7 @@ function slotOpts(date,w,list,cur,self){
   return list.map(n=>{const t=at(date,w,n),taken=t&&t.id!==self;return `<option value="${n}"${taken?' disabled':''}${n===cur?' selected':''}>${SL[n].label} · ${SL[n].time}${taken?' · taken':''}</option>`}).join('')}
 function firstFree(date,w,list,self){return list.find(n=>{const t=at(date,w,n);return !t||t.id===self})}
 function placeFields(date,w,list,cur,self){
-  return `<div class="grid2"><div class="field"><label for="f-worker">Worker</label><select id="f-worker">${W.map(x=>`<option value="${x}"${x===w?' selected':''}>${esc(wname(x))}</option>`).join('')}</select></div>
+  return `<div class="grid2"><div class="field"><label for="f-worker">Worker</label><select id="f-worker">${(S.me?[S.me]:W).map(x=>`<option value="${x}"${x===w?' selected':''}>${esc(wname(x))}</option>`).join('')}</select></div>
   <div class="field"><label for="f-date">Day</label><input type="date" id="f-date" value="${date}"></div></div>
   <div class="field"><label for="f-slot">Time</label><select id="f-slot" data-list="${list.join(',')}" data-self="${self||''}">${slotOpts(date,w,list,cur,self)}</select></div>`}
 function wirePlace(){
@@ -519,7 +520,7 @@ function openNeedPart(j){
     ok?closeSheet():showErr('Could not save. Try again.')};
 }
 
-function nearestFin(pref){const t=ymd(new Date());for(let i=0;i<30;i++){const d=addDays(t,i);for(const w of [pref,...W.filter(x=>x!==pref)]){const n=firstFree(d,w,FIN);if(n)return {date:d,w,n}}}return {date:t,w:pref,n:FIN[0]}}
+function nearestFin(pref){const t=ymd(new Date());for(let i=0;i<30;i++){const d=addDays(t,i);for(const w of (S.me?[S.me]:[pref,...W.filter(x=>x!==pref)])){const n=firstFree(d,w,FIN);if(n)return {date:d,w,n}}}return {date:t,w:pref,n:FIN[0]}}
 function openBook(j){
   const p=nearestFin(j.worker||'a');
   openSheet(`<h3>Book finish visit</h3><p class="lead">${esc(j.customer||'')} · install ${esc(j.part||'the part')}. Nearest free time is picked for you.</p><p class="err" id="f-err" hidden></p>
@@ -641,18 +642,26 @@ onAuthStateChanged(auth,user=>{
   setWho();render();note('Loading jobs…');
   let ready=false;
   const timer=setTimeout(()=>note(ready?'Showing saved jobs. They may be out of date until the connection is back.':'Can’t reach the saved jobs yet. Check the connection.','warn'),10000);
-  unsubs.push(DB.collection('jobs').onSnapshot(snap=>{
+  const jobsSrc=S.me?query(fsCol(fs,'jobs'),where('worker','==',S.me)):fsCol(fs,'jobs');
+  unsubs.push(onSnapshot(jobsSrc,{includeMetadataChanges:true},snap=>{
     S.jobs=new Map(snap.docs.map(d=>[d.id,{id:d.id,...d.data()}]));
     if(!snap.metadata.fromCache){clearTimeout(timer);ready=true;note('')}
     render();
   },()=>{clearTimeout(timer);note('The board stopped updating. Reload the page to reconnect.','warn')}));
   if(S.owner)unsubs.push(DB.collection('pay').onSnapshot(snap=>{S.pay=new Map(snap.docs.map(d=>[d.id,d.data()]));renderMoney()},()=>{}));
   if(S.owner)unsubs.push(DB.collection('lost').onSnapshot(snap=>{S.lost=new Map(snap.docs.map(d=>[d.id,d.data()]));renderLost();renderMoney()},()=>{}));
-  unsubs.push(DB.doc('config/workers').onSnapshot(s=>{
-    if(s.exists){const d=s.data();S.workers={a:d.a||'Worker 1',b:d.b||'Worker 2'};
-      S.cfg={callFee:d.callFee??65,pctA:d.pctA??50,pctB:d.pctB??50,undonePct:d.undonePct??75};setWho();render()}
-    else if(S.owner){DB.doc('config/workers').set({a:'Mohamed',b:'Mahdi',pctA:50,pctB:35,undonePct:75,callFee:65}).catch(()=>{});DB.doc('public/names').set({a:'Mohamed',b:'Mahdi'}).catch(()=>{})}
+  if(S.owner)unsubs.push(DB.doc('config/workers').onSnapshot(s=>{
+    if(s.exists){const d=s.data();S.workers={a:d.a||'Mohamed',b:d.b||'Mahdi'};
+      S.cfg={callFee:d.callFee??65,pctA:d.pctA??50,pctB:d.pctB??35,undonePct:d.undonePct??75};setWho();render();
+      DB.doc('public/names').set({a:S.workers.a,b:S.workers.b}).catch(()=>{});
+      DB.doc('team/a').set({name:S.workers.a,pct:S.cfg.pctA,callFee:S.cfg.callFee}).catch(()=>{});
+      DB.doc('team/b').set({name:S.workers.b,pct:S.cfg.pctB,callFee:S.cfg.callFee}).catch(()=>{})}
+    else{DB.doc('config/workers').set({a:'Mohamed',b:'Mahdi',pctA:50,pctB:35,undonePct:75,callFee:65}).catch(()=>{})}
   },()=>{}));
+  if(S.me){
+    unsubs.push(DB.doc('public/names').onSnapshot(s=>{if(s.exists){const d=s.data();S.workers={a:d.a||'Mohamed',b:d.b||'Mahdi'};setWho();render()}},()=>{}));
+    unsubs.push(DB.doc('team/'+S.me).onSnapshot(s=>{if(s.exists){const d=s.data();S.cfg={...S.cfg,callFee:d.callFee??65,[S.me==='a'?'pctA':'pctB']:d.pct??S.cfg[S.me==='a'?'pctA':'pctB']};render()}},()=>{}));
+  }
 });
 </script>
 </body>
