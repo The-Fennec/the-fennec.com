@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Fennec Jobs">
+<meta name="theme-color" content="#0d5b70">
+<link rel="icon" href="/favicon.ico">
+<title>Fennec Job Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: sticky day bar + worker tabs, week strip, each worker's day as a timeline of 6 slots with prayer breaks, parts list underneath */
+:root{
+  --bg:#eef1f3; --surface:#ffffff; --ink:#14222a; --muted:#56666f; --line:#cfd8dd;
+  --accent:#0d5b70; --accent-ink:#ffffff; --accent-soft:#d9ebf0;
+  --fin:#8a4f00; --fin-bg:#fcefd8; --done:#256b43; --done-bg:#e1f2e7; --danger:#b3261e;
+  --f-display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f171c; --surface:#17232a; --ink:#e6eef2; --muted:#98a9b2; --line:#2b3c45;
+  --accent:#5fb6cc; --accent-ink:#06222b; --accent-soft:#16323c;
+  --fin:#f0b45a; --fin-bg:#33260f; --done:#6fcf97; --done-bg:#13301f; --danger:#f2867e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f171c; --surface:#17232a; --ink:#e6eef2; --muted:#98a9b2; --line:#2b3c45;
+  --accent:#5fb6cc; --accent-ink:#06222b; --accent-soft:#16323c;
+  --fin:#f0b45a; --fin-bg:#33260f; --done:#6fcf97; --done-bg:#13301f; --danger:#f2867e; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.4}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:1100px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+header.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.bar .wrap{display:grid;gap:8px;padding-block:10px}
+.row1{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.brand{font-family:var(--f-display);font-weight:700;font-size:22px;letter-spacing:.02em;text-transform:uppercase;margin:0;margin-right:auto}
+.daynav{display:flex;align-items:center;gap:6px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 14px;font-weight:600;min-height:42px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.btn.fin{border-color:var(--fin);color:var(--fin);background:transparent}
+.btn.donebtn{background:var(--done);border-color:var(--done);color:var(--surface)}
+.btn.danger{border-color:var(--danger);color:var(--danger);background:transparent}
+.btn.sm{min-height:36px;padding:6px 12px;font-size:14px}
+.btn[disabled]{opacity:.5;cursor:default}
+#date-input{border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--surface);font-family:var(--f-mono);font-size:13px;min-height:42px}
+.tabs{display:flex;gap:6px;overflow-x:auto}
+.tab{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:6px 14px;font-weight:600;font-size:14px;white-space:nowrap;min-height:36px}
+.tab[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+
+main.wrap{display:grid;gap:18px;padding-block:14px 48px}
+.notice{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:10px 14px;color:var(--muted)}
+.notice[data-kind="warn"]{border-color:var(--fin);color:var(--fin);background:var(--fin-bg)}
+
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.wday{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:7px 2px 8px;text-align:center;display:grid;gap:4px;justify-items:center}
+.wday .dn{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.wday .dd{font-family:var(--f-display);font-weight:700;font-size:21px;line-height:1}
+.wday.sel{border-color:var(--accent);background:var(--accent-soft)}
+.wday.today .dd{color:var(--accent)}
+.loads{display:grid;gap:3px}
+.load{display:flex;gap:2px}
+.load i{width:6px;height:6px;border-radius:2px;border:1px solid var(--line)}
+.load i.on{background:var(--accent);border-color:var(--accent)}
+.load i.f.on{background:var(--fin);border-color:var(--fin)}
+
+.dayhead{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px}
+h2.sec{font-family:var(--f-display);font-weight:700;font-size:21px;text-transform:uppercase;letter-spacing:.04em;margin:0;text-wrap:balance}
+.dayhead .muted{color:var(--muted);font-size:14px}
+
+.crew{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.crew.one{grid-template-columns:minmax(0,1fr);max-width:620px}
+@media (max-width:760px){.crew{grid-template-columns:minmax(0,1fr)}}
+.col{display:grid;gap:8px;align-content:start;min-width:0}
+.colhead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding-bottom:6px;border-bottom:2px solid var(--ink)}
+.colhead h3{font-family:var(--f-display);font-weight:700;font-size:24px;margin:0;text-transform:uppercase;letter-spacing:.03em}
+.count{font-family:var(--f-mono);font-size:13px;color:var(--muted)}
+
+.slot{display:grid;grid-template-columns:86px minmax(0,1fr);gap:10px;align-items:stretch}
+.when{display:grid;align-content:start;gap:2px;padding-top:10px}
+.when .t{font-family:var(--f-mono);font-size:12px;color:var(--muted);line-height:1.3}
+.when .k{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--accent)}
+.slot.f .when .k{color:var(--fin)}
+.brk{display:grid;grid-template-columns:86px minmax(0,1fr);gap:10px;align-items:center;color:var(--muted);font-size:13px}
+.brk span:last-child{border-top:1px dashed var(--line);padding-top:2px}
+.brk .t{font-family:var(--f-mono);font-size:12px}
+
+.empty{display:flex;align-items:center;width:100%;min-height:58px;border:1.5px dashed var(--line);border-radius:12px;background:transparent;padding:10px 14px;text-align:left;color:var(--muted);font-weight:600}
+.empty:hover{border-color:var(--accent);color:var(--accent)}
+.slot.f .empty{border-color:color-mix(in srgb,var(--fin) 40%,var(--line))}
+.slot.f .empty:hover{color:var(--fin);border-color:var(--fin)}
+.empty[disabled]{cursor:default;font-weight:500}
+.job{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 13px;display:grid;gap:4px;min-width:0}
+.slot.f .job{border-left:4px solid var(--fin)}
+.job.done{background:var(--done-bg);border-color:transparent}
+.job h4{margin:0;font-size:17px;font-weight:600;overflow-wrap:anywhere;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.job p{margin:0;overflow-wrap:anywhere}
+.tag{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px}
+.tag.dn{background:var(--done);color:var(--surface)}
+.what{font-weight:500}
+.sub{color:var(--muted);font-size:14px}
+.phone{font-family:var(--f-mono);font-size:13px;color:var(--muted);user-select:all}
+.acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+
+.plist{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}
+.pcard{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--fin);border-radius:12px;padding:12px 14px;display:grid;gap:4px;min-width:0}
+.pcard.arrived{border-left-color:var(--done)}
+.pcard h4{margin:0;font-size:17px;font-weight:600;overflow-wrap:anywhere}
+.pcard p{margin:0;overflow-wrap:anywhere}
+.pstate{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--fin)}
+.arrived .pstate{color:var(--done)}
+.none{color:var(--muted);font-size:15px;margin:0}
+
+.overlay{position:fixed;inset:0;z-index:20;background:rgb(0 0 0 / .45);display:grid;place-items:end center;padding:max(12px,env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) max(12px,env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+@media (min-width:600px){.overlay{place-items:center}}
+.overlay[hidden],[hidden]{display:none!important}
+.job.undone{background:var(--bg);border-style:dashed}
+.tag.un{background:var(--muted);color:var(--surface)}
+.cash{display:flex;flex-wrap:wrap;gap:4px 12px;font-family:var(--f-mono);font-size:13px;margin-top:2px}
+.cash b{font-weight:500;color:var(--ink)}
+.cash span{color:var(--muted)}
+.calc{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;background:var(--bg);border-radius:12px;padding:10px 12px;margin-bottom:12px}
+.calc div{display:grid;gap:2px;min-width:0}
+.calc span{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.calc b{font-family:var(--f-mono);font-weight:500;font-size:16px}
+.mtable{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.mtable table{border-collapse:collapse;width:100%;min-width:420px;font-variant-numeric:tabular-nums}
+.mtable th,.mtable td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+.mtable th:first-child,.mtable td:first-child{text-align:left}
+.mtable thead th{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.mtable td{font-family:var(--f-mono);font-size:14px}
+.mtable td:first-child{font-family:var(--f-body);font-weight:600;font-size:15px}
+.mtable tr.tot td{font-weight:600;border-bottom:0}
+.mtable tr.tot td:first-child{font-weight:700}
+.neg{color:var(--danger)}
+.lost{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:10px}
+.lost-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.lost h3{font-family:var(--f-display);font-weight:700;font-size:20px;text-transform:uppercase;letter-spacing:.03em;margin:0}
+.lost .sub{margin:0}
+.ctr{display:flex;align-items:center;gap:10px}
+.ctr .btn{min-width:52px;min-height:48px;font-size:22px;line-height:1}
+.ctr b{font-family:var(--f-display);font-size:34px;min-width:40px;text-align:center}
+.lost .field{margin:0}
+.payday{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:10px}
+.payday h3{font-family:var(--f-display);font-weight:700;font-size:20px;text-transform:uppercase;letter-spacing:.03em;margin:0}
+.payrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding-top:10px;border-top:1px solid var(--line)}
+.payrow > div{display:grid;gap:2px;margin-right:auto;min-width:0}
+.payrow .amt{font-family:var(--f-mono);font-weight:500;font-size:18px}
+.paid{font-size:13px;font-weight:700;color:var(--done);background:var(--done-bg);border-radius:999px;padding:4px 10px}
+.sheet{background:var(--surface);color:var(--ink);border-radius:16px;width:min(520px,100%);max-height:100%;overflow:auto;padding:18px}
+.sheet h3{font-family:var(--f-display);font-weight:700;font-size:23px;text-transform:uppercase;letter-spacing:.03em;margin:0 0 4px}
+.sheet .lead{color:var(--muted);margin:0 0 14px;font-size:15px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (max-width:460px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.field{display:grid;gap:5px;margin-bottom:12px;min-width:0}
+.field label,.field .lbl{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg);min-height:44px}
+.field textarea{min-height:56px;resize:vertical}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:7px 12px;font-size:14px;font-weight:600;min-height:38px}
+.chips button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.pick{display:grid;gap:8px;margin-bottom:12px}
+.pick button{display:grid;gap:2px;text-align:left;border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:10px 12px}
+.pick button:hover{border-color:var(--accent)}
+.pick b{font-weight:600}
+.pick small{color:var(--muted);font-size:13px}
+.sheet-acts{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:4px}
+.sheet-acts .left{margin-right:auto}
+.err{color:var(--danger);font-size:14px;margin:0 0 10px}
+@media (prefers-reduced-motion:no-preference){.job,.pcard,.empty,.btn{transition:border-color .15s,background-color .15s}}
+html{color-scheme:light}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;font-size:16px}
+img{max-width:100%}
+.who{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.login{position:fixed;inset:0;z-index:30;background:var(--bg);display:grid;place-items:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.login-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;width:min(400px,100%);padding:22px;display:grid;gap:14px}
+.login-card h1{font-family:var(--f-display);font-weight:700;font-size:28px;text-transform:uppercase;letter-spacing:.03em;margin:0}
+.login-card p{margin:0;color:var(--muted)}
+.people{display:grid;gap:8px}
+.people button{border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:12px 14px;text-align:left;font-weight:600;font-size:17px;min-height:50px}
+.people button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+#pin{font-family:var(--f-mono);font-size:26px;letter-spacing:.4em;text-align:center;width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--bg)}
+.login-card .btn{width:100%;min-height:50px;font-size:17px}
+</style>
+</head>
+<body>
+
+<div class="login" id="login" hidden>
+  <form class="login-card" id="login-form" novalidate>
+    <h1>Fennec Job Board</h1>
+    <p>Tap your name, then type your 6-digit PIN.</p>
+    <div class="people" id="people" role="group" aria-label="Who are you"></div>
+    <label class="lbl" for="pin" style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)">PIN</label>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="12" placeholder="••••••">
+    <p class="err" id="login-err" hidden></p>
+    <button type="submit" class="btn primary" id="login-btn">Sign in</button>
+  </form>
+</div>
+
+<header class="bar">
+  <div class="wrap">
+    <div class="row1">
+      <h1 class="brand">Fennec Job Board</h1>
+      <div class="daynav">
+        <button class="btn sm" id="prev-day" aria-label="Previous day">‹</button>
+        <button class="btn sm" id="today-btn">Today</button>
+        <button class="btn sm" id="next-day" aria-label="Next day">›</button>
+        <input type="date" id="date-input" aria-label="Pick a day">
+      </div>
+    </div>
+    <div class="tabs" id="tabs" role="group" aria-label="Show"></div>
+    <div class="who" id="who" hidden></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="notice" id="status-note">Loading jobs…</div>
+  <nav class="week" id="week" aria-label="This week"></nav>
+  <div class="dayhead"><h2 class="sec" id="day-title">Today</h2><span class="muted" id="day-sub"></span></div>
+  <section class="lost" id="lost-sec" hidden></section>
+  <section class="crew" id="crew"></section>
+  <section style="display:grid;gap:10px">
+    <div class="dayhead"><h2 class="sec">Waiting for parts</h2><span class="muted">When the part is here, tap “Part is here” and book the finish visit</span></div>
+    <div class="plist" id="plist"></div>
+  </section>
+  <section id="money-sec" style="display:grid;gap:10px" hidden>
+    <div class="dayhead"><h2 class="sec">Money</h2><span class="muted" id="money-sub">Only you see this part</span></div>
+    <div id="money"></div>
+  </section>
+  <p class="sub" style="margin:0"><button class="btn ghost sm" id="names-btn">Settings: worker names, %, call fee</button></p>
+</main>
+
+<div class="overlay" id="overlay" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+
+<script type="module">
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import {initializeFirestore,persistentLocalCache,collection as fsCol,doc as fsDoc,setDoc,updateDoc,deleteDoc,onSnapshot,getDoc} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+/* Firebase project fennec-jobs. This config is public by design; the logins and the database rules are the lock. */
+const app=initializeApp({apiKey:"AIzaSyCIRh114KrUBnrr3hiLMOVOSnQi7ih_--c",authDomain:"fennec-jobs.firebaseapp.com",projectId:"fennec-jobs",storageBucket:"fennec-jobs.firebasestorage.app",messagingSenderId:"774958070623",appId:"1:774958070623:web:4b54505bdb200728b914ea"});
+const auth=getAuth(app);
+let fs;try{fs=initializeFirestore(app,{localCache:persistentLocalCache()})}catch(e){fs=initializeFirestore(app,{})}
+/* Who is who: login emails (not real mailboxes) */
+const PEOPLE={owner:'salah@the-fennec.com',a:'worker1@the-fennec.com',b:'worker2@the-fennec.com'};
+/* Small adapter so the board code below talks to Firestore the same way it talked to the old store */
+function ref(path){const r=fsDoc(fs,path);return {id:r.id,set:d=>setDoc(r,d),update:d=>updateDoc(r,d),delete:()=>deleteDoc(r),get:async()=>{const s=await getDoc(r);return {exists:s.exists(),data:()=>s.data()}},
+  onSnapshot:(next,err)=>onSnapshot(r,s=>next({exists:s.exists(),data:()=>s.data()}),err)}}
+const DB={doc:path=>ref(path),collection:path=>({doc:id=>ref(path+'/'+id),
+  onSnapshot:(next,err)=>onSnapshot(fsCol(fs,path),{includeMetadataChanges:true},s=>next({docs:s.docs.map(d=>({id:d.id,data:()=>d.data()})),metadata:{fromCache:s.metadata.fromCache}}),err)})};
+
+/* The day: 3 new jobs and 3 finish-job (part) visits per worker, in time order */
+const SLOTS=[
+  {n:1,f:true, label:'Finish 1',time:'7:30–9:00'},
+  {n:2,f:false,label:'Job 1',   time:'9:00–11:00'},
+  {n:3,f:true, label:'Finish 2',time:'11:00–12:30'},
+  {n:4,f:false,label:'Job 2',   time:'1:00–2:30'},
+  {n:5,f:false,label:'Job 3',   time:'3:00–5:00'},
+  {n:6,f:true, label:'Finish 3',time:'After 5:00'}];
+const BREAKS={3:['12:30–1:00','Dhuhr · lunch'],4:['2:30–3:00','Asr'],5:['5:00','Maghrib']};
+const NEW=SLOTS.filter(s=>!s.f).map(s=>s.n), FIN=SLOTS.filter(s=>s.f).map(s=>s.n);
+const SL=Object.fromEntries(SLOTS.map(s=>[s.n,s]));
+const W=['a','b'];
+const APPLIANCES=['Fridge','Freezer','Washer','Dryer','Oven / Range','Cooktop','Dishwasher','Wine cooler','Ice maker','Other'];
+const S={pay:new Map(),lost:new Map(),jobs:new Map(),workers:{a:'Worker 1',b:'Worker 2'},cfg:{callFee:65,pctA:50,pctB:50,undonePct:75},owner:false,day:ymd(new Date()),db:null,canWrite:true,canWriteUnknown:false,ready:false,busy:false,show:'both'};
+/* Salah's formula: worker pay = (total − parts − call fee) × worker %, profit = the rest. Undone calls use the same formula with total $0. */
+function money(j){const t=+j.total||0,p=+j.parts||0,c=+j.callFee||0,dep=+j.deposit||0,pct=(+j.pct||0)/100;const base=t-p-c;
+  if(j.status==='undone'){const s=Math.round(base/3*100)/100;return {t,p,c,dep,rest:t-dep,worker:s,other:s,profit:Math.round((base-2*s)*100)/100}} /* undone: you and both workers each take 1/3 */
+  const worker=Math.round(base*pct*100)/100;return {t,p,c,dep,rest:t-dep,worker,other:0,profit:Math.round((base-worker)*100)/100}}
+function usd(n){n=Number(n)||0;return (n<0?'-':'')+'$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function wpct(w){return w==='b'?S.cfg.pctB:S.cfg.pctA}
+function closed(j){return j.status==='done'||j.status==='undone'}
+try{const v=localStorage.getItem('fennec-show');if(v)S.show=v}catch(e){}
+
+function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function parse(s){const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)}
+function addDays(s,n){const d=parse(s);d.setDate(d.getDate()+n);return ymd(d)}
+function fmt(s,o){return s?parse(s).toLocaleDateString('en-US',o||{month:'short',day:'numeric'}):''}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function $(s){return document.querySelector(s)}
+function all(){return [...S.jobs.values()]}
+function onBoard(j){return j.status!=='part'&&j.date&&SL[j.slot]}
+function at(date,w,n){return all().find(j=>onBoard(j)&&j.date===date&&j.worker===w&&j.slot===n)}
+function count(date,w,list){return all().filter(j=>onBoard(j)&&j.date===date&&j.worker===w&&list.includes(j.slot)).length}
+function wname(w){return S.workers[w]||(w==='a'?'Worker 1':'Worker 2')}
+function newId(){return 'j'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function can(){return !!S.db&&S.canWrite}
+function note(t,k){const n=$('#status-note');if(!t){n.hidden=true;return}n.hidden=false;n.textContent=t;n.dataset.kind=k||''}
+function what(j){return [j.brand,j.appliance].filter(Boolean).join(' ')+(j.problem?' · '+j.problem:'')}
+function nowIso(){return new Date().toISOString()}
+
+/* ---------- render ---------- */
+function render(){
+  const today=ymd(new Date());
+  $('#date-input').value=S.day;
+  $('#day-title').textContent=(S.day===today?'Today · ':'')+fmt(S.day,{weekday:'long',month:'long',day:'numeric'});
+  const shown=S.show==='both'?W:[S.show];
+  const nNew=shown.reduce((t,w)=>t+count(S.day,w,NEW),0), nFin=shown.reduce((t,w)=>t+count(S.day,w,FIN),0);
+  $('#day-sub').textContent=`${nNew} of ${shown.length*3} new jobs · ${nFin} of ${shown.length*3} finish visits`;
+
+  $('#tabs').innerHTML=[['both','Both workers'],['a',wname('a')],['b',wname('b')]].map(([k,l])=>`<button class="tab" data-show="${k}" aria-pressed="${S.show===k}">${esc(l)}</button>`).join('');
+
+  const d=parse(S.day),mon=addDays(S.day,-((d.getDay()+6)%7));let wk='';
+  for(let i=0;i<7;i++){const day=addDays(mon,i);
+    wk+=`<button class="wday${day===S.day?' sel':''}${day===today?' today':''}" data-day="${day}" aria-label="${fmt(day,{weekday:'long',month:'long',day:'numeric'})}"><span class="dn">${fmt(day,{weekday:'short'})}</span><span class="dd">${parse(day).getDate()}</span><span class="loads">${shown.map(w=>{const c=count(day,w,NEW),f=count(day,w,FIN);return `<span class="load" title="${esc(wname(w))}: ${c}/3 new, ${f}/3 finish">${[0,1,2].map(k=>`<i class="${k<c?'on':''}"></i>`).join('')}${[0,1,2].map(k=>`<i class="f${k<f?' on':''}"></i>`).join('')}</span>`}).join('')}</span></button>`}
+  $('#week').innerHTML=wk;
+
+  const crew=$('#crew');crew.className='crew'+(shown.length===1?' one':'');
+  crew.innerHTML=shown.map(w=>`<div class="col"><div class="colhead"><h3>${esc(wname(w))}</h3><span class="count">${count(S.day,w,NEW)}/3 new · ${count(S.day,w,FIN)}/3 finish</span></div>
+    ${SLOTS.map(s=>{const j=at(S.day,w,s.n);const b=BREAKS[s.n];
+      return `<div class="slot${s.f?' f':''}"><div class="when"><span class="k">${s.label}</span><span class="t">${s.time}</span></div>${j?card(j):empty(w,s)}</div>`+(b?`<div class="brk"><span class="t">${b[0]}</span><span>${b[1]}</span></div>`:'')}).join('')}</div>`).join('');
+
+  const waiting=all().filter(j=>j.status==='part').sort((x,y)=>(x.partStatus==='arrived'?0:1)-(y.partStatus==='arrived'?0:1)||(x.partOrdered||'').localeCompare(y.partOrdered||''));
+  $('#plist').innerHTML=waiting.length?waiting.map(pcard).join(''):'<p class="none">No jobs waiting for parts. When a job needs a part, tap “Needs part” on it and it shows up here.</p>';
+  renderLost();
+  renderMoney();
+}
+
+function renderLost(){
+  const s=$('#lost-sec');if(!S.owner||!S.db){s.hidden=true;return}s.hidden=false;
+  const L=S.lost.get(S.day)||{count:0,note:''};const fee=L.fee??S.cfg.callFee;
+  if(document.activeElement&&document.activeElement.id==='lost-note'){s.querySelector('.ctr b').textContent=L.count||0;s.querySelector('.lost-cost').textContent=usd((L.count||0)*fee);return}
+  s.innerHTML=`<div class="lost-top"><div><h3>Lost calls</h3><p class="sub">Calls that didn't turn into a job · cost <b class="lost-cost">${usd((L.count||0)*fee)}</b>, split 3 ways: <b>${usd((L.count||0)*fee/3)}</b> each for you, ${esc(wname('a'))} and ${esc(wname('b'))} · only you see this</p></div>
+    <div class="ctr"><button class="btn" data-lost="-1" aria-label="One less lost call">−</button><b>${L.count||0}</b><button class="btn primary" data-lost="1" aria-label="One more lost call">+</button></div></div>
+    <div class="field"><label for="lost-note">Why (optional)</label><input id="lost-note" value="${esc(L.note||'')}" placeholder="Price shopper, out of area, no answer…" autocomplete="off"></div>`;
+  $('#lost-note').addEventListener('change',async e=>{const cur=S.lost.get(S.day)||{count:0};const note=e.target.value.trim();S.lost.set(S.day,{...cur,note});
+    await write(()=>S.db.collection('lost').doc(S.day).set({count:cur.count||0,note,fee:cur.fee??S.cfg.callFee,updatedAt:nowIso()}))});
+}
+
+function weekStart(day){const d=parse(day);return addDays(day,-((d.getDay()+6)%7))}
+function earnedWeek(mon,w){const sun=addDays(mon,6);let s=0;
+  all().filter(j=>closed(j)&&j.date>=mon&&j.date<=sun).forEach(j=>{const m=money(j);if(j.worker===w)s+=m.worker;else if(j.status==='undone')s+=m.other});
+  S.lost.forEach((v,k)=>{if(k>=mon&&k<=sun)s-=(v.count||0)*(v.fee??S.cfg.callFee)/3});return Math.round(s*100)/100}
+/* A negative week carries to the next week's pay */
+function owed(mon,w){let first=mon;
+  all().forEach(j=>{if(closed(j)&&j.date){const ws=weekStart(j.date);if(ws<first)first=ws}});S.lost.forEach((v,k)=>{const ws=weekStart(k);if(ws<first)first=ws});
+  let carry=0,wk=first;for(let i=0;i<160&&wk<=mon;i++){const e=earnedWeek(wk,w),net=Math.round((e+carry)*100)/100;if(wk===mon)return {earned:e,carry,net};carry=net<0?net:0;wk=addDays(wk,7)}
+  return {earned:0,carry:0,net:0}}
+
+function renderMoney(){
+  $('#names-btn').hidden=!S.owner;
+  const sec=$('#money-sec');if(!S.owner){sec.hidden=true;return}sec.hidden=false;
+  const d=parse(S.day),mon=addDays(S.day,-((d.getDay()+6)%7)),sun=addDays(mon,6);
+  const mStart=S.day.slice(0,8)+'01',mEnd=ymd(new Date(d.getFullYear(),d.getMonth()+1,0));
+  const sum=(from,to)=>{const r={done:0,un:0,t:0,c:0,p:0,worker:0,profit:0,by:{a:{done:0,un:0,worker:0},b:{done:0,un:0,worker:0}}};
+    all().filter(j=>closed(j)&&j.date>=from&&j.date<=to).forEach(j=>{const m=money(j),k=j.status==='done'?'done':'un';r[k]++;r.t+=m.t;r.c+=m.c;r.p+=m.p;r.worker+=m.worker;r.profit+=m.profit;const b=r.by[j.worker];if(b){b[k]++;b.worker+=m.worker}if(k==='un'){const o=r.by[j.worker==='a'?'b':'a'];if(o)o.worker+=m.other;r.worker+=m.other}});return r};
+  const wk=sum(mon,sun),mo=sum(mStart,mEnd);
+  const lostSum=(from,to)=>{let n=0,c=0;S.lost.forEach((v,k)=>{if(k>=from&&k<=to){n+=v.count||0;c+=(v.count||0)*(v.fee??S.cfg.callFee)}});return {n,c}};
+  const lw=lostSum(mon,sun),lm=lostSum(mStart,mEnd);
+  const neg=n=>n<0?' class="neg"':'';
+  $('#money-sub').textContent='Only you see this part · week of '+fmt(mon)+' and '+fmt(S.day,{month:'long'});
+  $('#money').innerHTML=`<div class="mtable"><table><thead><tr><th></th><th>This week</th><th>${esc(fmt(S.day,{month:'long'}))}</th></tr></thead><tbody>
+    <tr><td>Jobs done</td><td>${wk.done}</td><td>${mo.done}</td></tr>
+    <tr><td>Undone calls</td><td>${wk.un}</td><td>${mo.un}</td></tr>
+    <tr><td>Charged</td><td>${usd(wk.t)}</td><td>${usd(mo.t)}</td></tr>
+    <tr><td>Call fees</td><td>${usd(wk.c)}</td><td>${usd(mo.c)}</td></tr>
+    <tr><td>Parts</td><td>${usd(wk.p)}</td><td>${usd(mo.p)}</td></tr>
+    ${W.map(w=>{const pw=wk.by[w].worker-lw.c/3,pm=mo.by[w].worker-lm.c/3;return `<tr><td>${esc(wname(w))}'s pay <span class="sub">(${wk.by[w].done} done, ${wk.by[w].un} undone${lw.n?`, −${usd(lw.c/3)} lost calls`:''})</span></td><td${neg(pw)}>${usd(pw)}</td><td${neg(pm)}>${usd(pm)}</td></tr>`}).join('')}
+    <tr><td>Profit from jobs</td><td${neg(wk.profit)}>${usd(wk.profit)}</td><td${neg(mo.profit)}>${usd(mo.profit)}</td></tr>
+    <tr><td>Lost calls</td><td>${lw.n}</td><td>${lm.n}</td></tr>
+    <tr><td>Lost call fees <span class="sub">(total, split 3 ways)</span></td><td>${usd(lw.c)}</td><td>${usd(lm.c)}</td></tr>
+    <tr><td>Your 1/3 of lost calls</td><td${lw.c?' class="neg"':''}>${usd(-lw.c/3)}</td><td${lm.c?' class="neg"':''}>${usd(-lm.c/3)}</td></tr>
+    <tr class="tot"><td>Your profit</td><td${neg(wk.profit-lw.c/3)}>${usd(wk.profit-lw.c/3)}</td><td${neg(mo.profit-lm.c/3)}>${usd(mo.profit-lm.c/3)}</td></tr>
+  </tbody></table></div>
+  <div class="payday"><h3>Payday · week of ${fmt(mon)}–${fmt(sun)}</h3>
+  ${W.map(w=>{const o=owed(mon,w),owe=o.net;const p=(S.pay.get(mon)||{})[w];
+    const changed=p&&Math.abs((p.amount||0)-owe)>0.009;
+    return `<div class="payrow"><div><b>${esc(wname(w))}</b><span class="sub">${wk.by[w].done} done · ${wk.by[w].un} undone · this week ${usd(o.earned)}${o.carry?` · last week <span class="neg">${usd(o.carry)}</span>`:''}</span></div><b class="amt${owe<0?' neg':''}">${usd(owe)}</b>
+      ${p?`<span class="paid">Paid ${usd(p.amount)} on ${fmt(p.on)}</span>${changed?`<span class="sub neg">Jobs changed after you paid: now ${usd(owe)}</span>`:''}<button class="btn sm ghost" data-pay="${w}" data-undo="1">Undo paid</button>`
+        :(owe<0?`<span class="sub">Nothing to pay. ${usd(owe)} comes off next week</span>`:`<button class="btn sm primary" data-pay="${w}" data-amt="${owe}">Mark paid</button>`)}</div>`}).join('')}</div>`;
+}
+
+function openFinish(j,kind){
+  const isUn=kind==='undone';
+  const pct=j.status===kind&&j.pct!=null?j.pct:(isUn?S.cfg.undonePct:wpct(j.worker));
+  const callFee=j.callFee!=null?j.callFee:S.cfg.callFee;
+  openSheet(`<h3>${isUn?'Undone call':'Job done'}</h3><p class="lead">${esc(j.customer||'')} · ${esc(wname(j.worker))}${isUn?'. No repair, the customer said no, or nobody home.':''}</p><p class="err" id="f-err" hidden></p>
+  <form id="fin-form" novalidate>
+    <div class="grid2">
+      <div class="field"><label for="m-total">${isUn?'Charged (if any)':'Total charged'}</label><input id="m-total" inputmode="decimal" value="${j.total??(isUn?0:'')}" placeholder="$"></div>
+      <div class="field"><label for="m-deposit">Deposit already paid</label><input id="m-deposit" inputmode="decimal" value="${j.deposit??0}"></div>
+      <div class="field"><label for="m-parts">Parts cost</label><input id="m-parts" inputmode="decimal" value="${j.parts??0}"></div>
+      <div class="field"><label for="m-call">Call fee</label><input id="m-call" inputmode="decimal" value="${callFee}"${S.owner?'':' readonly'}></div>
+    </div>
+    ${isUn?`<p class="sub" style="margin:0 0 12px">The loss is split 3 ways: you, ${esc(wname('a'))} and ${esc(wname('b'))} each pay 1/3.</p><input type="hidden" id="m-pct" value="33.33">`:`<div class="field"><label for="m-pct">${esc(wname(j.worker))}'s %${S.owner?'':' (set by Salah)'}</label><input id="m-pct" inputmode="decimal" value="${pct}"${S.owner?'':' readonly'}></div>`}
+    <div class="calc" id="m-calc"></div>
+    <div class="sheet-acts"><button type="button" class="btn ghost" id="cancel-btn">Cancel</button><button type="submit" class="btn primary">${isUn?'Save as undone':'Save, job done'}</button></div>
+  </form>`);
+  const read=()=>({total:+$('#m-total').value.replace(/[^0-9.]/g,'')||0,deposit:+$('#m-deposit').value.replace(/[^0-9.]/g,'')||0,parts:+$('#m-parts').value.replace(/[^0-9.]/g,'')||0,callFee:+$('#m-call').value.replace(/[^0-9.]/g,'')||0,pct:+$('#m-pct').value.replace(/[^0-9.]/g,'')||0});
+  const calc=()=>{const m=money({...read(),status:kind});$('#m-calc').innerHTML=`<div><span>Customer owes</span><b>${usd(m.rest)}</b></div><div><span>${isUn?'Each pays':esc(wname(j.worker))+' gets'}</span><b class="${m.worker<0&&!isUn?'neg':''}">${usd(isUn?-m.worker:m.worker)}</b></div>${S.owner?`<div><span>Your profit</span><b class="${m.profit<0?'neg':''}">${usd(m.profit)}</b></div>`:''}`};
+  document.querySelectorAll('#fin-form input').forEach(i=>i.addEventListener('input',calc));calc();
+  $('#m-total').focus();$('#cancel-btn').onclick=closeSheet;
+  $('#fin-form').onsubmit=async e=>{e.preventDefault();const v=read();
+    if(!isUn&&!v.total)return showErr('Type how much the customer paid in total.');
+    if(v.pct>100)return showErr('The % can’t be more than 100.');
+    if(closed(j)&&!S.owner)return showErr('This job is locked. Ask Salah to change it.');
+    const history=[...(j.history||[]),{at:nowIso(),by:S.uid||null,status:kind,total:v.total,deposit:v.deposit,parts:v.parts,pct:v.pct,callFee:v.callFee}];
+    const ok=await write(()=>S.db.collection('jobs').doc(j.id).update({...v,history,status:kind,closedAt:nowIso(),updatedAt:nowIso()}));
+    ok?closeSheet():showErr('Could not save. Try again.')};
+}
+
+function empty(w,s){
+  if(!can())return `<button class="empty" disabled>Free</button>`;
+  return `<button class="empty" data-act="${s.f?'fill':'add'}" data-w="${w}" data-s="${s.n}">${s.f?'+ Finish a job (part is here)':'+ Add new job'}</button>`}
+
+function card(j){
+  const fin=SL[j.slot].f, done=j.status==='done', un=j.status==='undone';
+  const acts=!can()?'':(done||un)
+    ?(S.owner?`<button class="btn sm ghost" data-act="money" data-id="${j.id}">Edit money</button><button class="btn sm ghost" data-act="undo" data-id="${j.id}">Undo</button>`:`<span class="sub">Locked. Ask Salah to change it.</span>`)
+    :`<button class="btn sm donebtn" data-act="done" data-id="${j.id}">Done</button><button class="btn sm fin" data-act="needpart" data-id="${j.id}">${fin?'Needs another part':'Needs part'}</button><button class="btn sm ghost" data-act="undone" data-id="${j.id}">Undone</button><button class="btn sm ghost" data-act="edit" data-id="${j.id}">Edit</button>`;
+  let cash='';
+  if(done||un){const m=money(j);
+    cash=`<div class="cash">${done?`<span>Charged <b>${usd(m.t)}</b></span>${m.dep?`<span>Deposit <b>${usd(m.dep)}</b></span>`:''}${m.p?`<span>Parts <b>${usd(m.p)}</b></span>`:''}`:''}<span>${un?'Split 3 ways, each pays':esc(wname(j.worker))+' gets'} <b class="${m.worker<0&&!un?'neg':''}">${usd(un?-m.worker:m.worker)}</b></span>${S.owner?`<span>Profit <b class="${m.profit<0?'neg':''}">${usd(m.profit)}</b></span>`:''}</div>${S.owner&&(j.history||[]).length>1?`<p class="sub neg">Money changed ${(j.history.length-1)} time${j.history.length>2?'s':''} after first save. First: charged ${usd(j.history[0].total)}, parts ${usd(j.history[0].parts)}</p>`:''}`}
+  return `<article class="job${done?' done':''}${un?' undone':''}">
+    <h4>${esc(j.customer||'No name')}${done?'<span class="tag dn">Done</span>':''}${un?'<span class="tag un">Undone</span>':''}</h4>${cash}
+    ${what(j).trim()?`<p class="what">${esc(what(j))}</p>`:''}
+    ${fin&&j.part?`<p class="sub">Install: ${esc(j.part)}</p>`:''}
+    ${j.address?`<p class="sub">${esc(j.address)}</p>`:''}
+    ${j.phone?`<p class="phone">${esc(j.phone)}</p>`:''}
+    ${j.notes?`<p class="sub">${esc(j.notes)}</p>`:''}
+    <div class="acts">${acts}</div></article>`}
+
+function pcard(j){
+  const arrived=j.partStatus==='arrived',last=(j.visits||[]).slice(-1)[0];
+  const acts=!can()?'':arrived
+    ?`<button class="btn sm primary" data-act="book" data-id="${j.id}">Book finish visit</button><button class="btn sm ghost" data-act="notyet" data-id="${j.id}">Not here yet</button>`
+    :`<button class="btn sm donebtn" data-act="arrived" data-id="${j.id}">Part is here</button><button class="btn sm ghost" data-act="edit" data-id="${j.id}">Edit</button>`;
+  return `<article class="pcard${arrived?' arrived':''}">
+    <span class="pstate">${arrived?'Part is here · book it':'Waiting for part'}</span>
+    <h4>${esc(j.customer||'No name')}</h4>
+    <p class="what">${esc(what(j))}</p>
+    <p><b>Part:</b> ${esc(j.part||'not written')}</p>
+    <p class="sub">${last?`First visit ${fmt(last.date)} · ${esc(wname(last.worker))}`:''}${j.partOrdered?` · ordered ${fmt(j.partOrdered)}`:''}</p>
+    ${j.address?`<p class="sub">${esc(j.address)}</p>`:''}
+    ${j.phone?`<p class="phone">${esc(j.phone)}</p>`:''}
+    <div class="acts">${acts}</div></article>`}
+
+/* ---------- sheets ---------- */
+function openSheet(h){$('#sheet').innerHTML=h;$('#overlay').hidden=false}
+function closeSheet(){$('#overlay').hidden=true;$('#sheet').innerHTML=''}
+$('#overlay').addEventListener('click',e=>{if(e.target.id==='overlay')closeSheet()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#overlay').hidden)closeSheet()});
+function showErr(t){const e=$('#f-err');if(e){e.hidden=false;e.textContent=t}}
+
+function slotOpts(date,w,list,cur,self){
+  return list.map(n=>{const t=at(date,w,n),taken=t&&t.id!==self;return `<option value="${n}"${taken?' disabled':''}${n===cur?' selected':''}>${SL[n].label} · ${SL[n].time}${taken?' · taken':''}</option>`}).join('')}
+function firstFree(date,w,list,self){return list.find(n=>{const t=at(date,w,n);return !t||t.id===self})}
+function placeFields(date,w,list,cur,self){
+  return `<div class="grid2"><div class="field"><label for="f-worker">Worker</label><select id="f-worker">${W.map(x=>`<option value="${x}"${x===w?' selected':''}>${esc(wname(x))}</option>`).join('')}</select></div>
+  <div class="field"><label for="f-date">Day</label><input type="date" id="f-date" value="${date}"></div></div>
+  <div class="field"><label for="f-slot">Time</label><select id="f-slot" data-list="${list.join(',')}" data-self="${self||''}">${slotOpts(date,w,list,cur,self)}</select></div>`}
+function wirePlace(){
+  const upd=()=>{const s=$('#f-slot'),list=s.dataset.list.split(',').map(Number),self=s.dataset.self||null,d=$('#f-date').value,w=$('#f-worker').value;
+    const cur=Number(s.value),t=at(d,w,cur),pick=(!t||t.id===self)?cur:firstFree(d,w,list,self);
+    s.innerHTML=slotOpts(d,w,list,pick,self);if(!firstFree(d,w,list,self))s.insertAdjacentHTML('afterbegin','<option value="" selected>Full that day</option>')};
+  $('#f-date').addEventListener('change',upd);$('#f-worker').addEventListener('change',upd)}
+function readPlace(self){
+  const date=$('#f-date').value,w=$('#f-worker').value,slot=Number($('#f-slot').value);
+  if(!date)return showErr('Pick a day.'),null;
+  if(!slot)return showErr(wname(w)+' is full at those times that day. Pick another day or the other worker.'),null;
+  const t=at(date,w,slot);if(t&&t.id!==self)return showErr('Someone just took that time. Pick another.'),null;
+  return {date,worker:w,slot}}
+
+function wireChips(){document.querySelectorAll('#f-appl button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#f-appl button').forEach(x=>x.setAttribute('aria-pressed',x===b));$('#f-appliance').value=b.dataset.v})}
+
+function openJob(j,place){
+  const isNew=!j.id, list=j.slot&&SL[j.slot]?.f?FIN:NEW, onB=isNew||j.status!=='part';
+  openSheet(`<h3>${isNew?'New job':'Edit job'}</h3><p class="lead">${isNew?esc(wname(place.w))+' · '+esc(SL[place.slot].label)+' '+SL[place.slot].time+' · '+fmt(place.date,{weekday:'short',month:'short',day:'numeric'}):''}</p>
+  <p class="err" id="f-err" hidden></p>
+  <form id="job-form" novalidate>
+    <div class="field"><label for="f-customer">Customer name</label><input id="f-customer" value="${esc(j.customer)}" autocomplete="off"></div>
+    <div class="field"><label for="f-phone">Phone</label><input id="f-phone" type="tel" inputmode="tel" value="${esc(j.phone)}" autocomplete="off"></div>
+    <div class="field"><label for="f-address">Address</label><input id="f-address" value="${esc(j.address)}" autocomplete="off"></div>
+    <div class="field"><span class="lbl">Appliance</span><div class="chips" id="f-appl">${APPLIANCES.map(a=>`<button type="button" data-v="${a}" aria-pressed="${a===j.appliance}">${a}</button>`).join('')}</div><input type="hidden" id="f-appliance" value="${esc(j.appliance||'')}"></div>
+    <div class="grid2">
+      <div class="field"><label for="f-brand">Brand</label><input id="f-brand" value="${esc(j.brand)}" placeholder="LG, Sub-Zero…" autocomplete="off"></div>
+      <div class="field"><label for="f-problem">Problem</label><input id="f-problem" value="${esc(j.problem)}" placeholder="Not cooling…" autocomplete="off"></div>
+    </div>
+    ${j.status==='part'||list===FIN?`<div class="field"><label for="f-part">Part</label><input id="f-part" value="${esc(j.part)}"></div>`:''}
+    <div class="field"><label for="f-notes">Notes (optional)</label><textarea id="f-notes">${esc(j.notes)}</textarea></div>
+    ${isNew?`<input type="hidden" id="f-date" value="${place.date}"><input type="hidden" id="f-worker" value="${place.w}"><select id="f-slot" hidden><option value="${place.slot}" selected></option></select>`:(onB?placeFields(j.date,j.worker,list,j.slot,j.id):'')}
+    <div class="sheet-acts">${isNew||!S.owner?'':'<button type="button" class="btn danger left" id="del-btn">Delete</button>'}
+      <button type="button" class="btn ghost" id="cancel-btn">Cancel</button><button type="submit" class="btn primary">${isNew?'Add job':'Save'}</button></div>
+  </form>`);
+  wireChips();if(!isNew&&onB)wirePlace();
+  $('#cancel-btn').onclick=closeSheet;
+  const del=$('#del-btn');if(del)del.onclick=async()=>{if(del.dataset.armed!=='1'){del.dataset.armed='1';del.textContent='Tap again to delete';return}if(await write(()=>S.db.collection('jobs').doc(j.id).delete()))closeSheet()};
+  $('#job-form').onsubmit=async e=>{e.preventDefault();
+    const body={customer:$('#f-customer').value.trim(),phone:$('#f-phone').value.trim(),address:$('#f-address').value.trim(),appliance:$('#f-appliance').value,brand:$('#f-brand').value.trim(),problem:$('#f-problem').value.trim(),notes:$('#f-notes').value.trim()};
+    if($('#f-part'))body.part=$('#f-part').value.trim();
+    if(!body.customer&&!body.address)return showErr('Add at least a name or an address.');
+    if(isNew||onB){const p=readPlace(j.id);if(!p)return;Object.assign(body,p)}
+    const ok=isNew?await write(()=>S.db.collection('jobs').doc(newId()).set({...body,status:'booked',visits:[],createdAt:nowIso()}))
+                  :await write(()=>S.db.collection('jobs').doc(j.id).update({...body,updatedAt:nowIso()}));
+    ok?closeSheet():showErr('Could not save. Check the connection and try again.')};
+}
+
+function openNeedPart(j){
+  openSheet(`<h3>Needs a part</h3><p class="lead">${esc(j.customer||'')} · ${esc(what(j))}. The job moves to “Waiting for parts” and frees this time.</p><p class="err" id="f-err" hidden></p>
+  <form id="part-form" novalidate><div class="field"><label for="f-part">Which part?</label><input id="f-part" placeholder="Fan motor, door gasket…" autocomplete="off"></div>
+  <div class="field"><label for="f-deposit">Deposit taken (optional)</label><input id="f-deposit" inputmode="decimal" value="${j.deposit||''}" placeholder="$"></div>
+  <div class="sheet-acts"><button type="button" class="btn ghost" id="cancel-btn">Cancel</button><button type="submit" class="btn primary">Move to waiting for parts</button></div></form>`);
+  $('#f-part').focus();$('#cancel-btn').onclick=closeSheet;
+  $('#part-form').onsubmit=async e=>{e.preventDefault();const part=$('#f-part').value.trim();if(!part)return showErr('Write the part so you know what to wait for.');
+    const visits=[...(j.visits||[]),{date:j.date,worker:j.worker,slot:j.slot}];
+    const deposit=+$('#f-deposit').value.replace(/[^0-9.]/g,'')||0;
+    const ok=await write(()=>S.db.collection('jobs').doc(j.id).update({status:'part',partStatus:'ordered',part,deposit,partOrdered:ymd(new Date()),visits,date:null,slot:null,updatedAt:nowIso()}));
+    ok?closeSheet():showErr('Could not save. Try again.')};
+}
+
+function nearestFin(pref){const t=ymd(new Date());for(let i=0;i<30;i++){const d=addDays(t,i);for(const w of [pref,...W.filter(x=>x!==pref)]){const n=firstFree(d,w,FIN);if(n)return {date:d,w,n}}}return {date:t,w:pref,n:FIN[0]}}
+function openBook(j){
+  const p=nearestFin(j.worker||'a');
+  openSheet(`<h3>Book finish visit</h3><p class="lead">${esc(j.customer||'')} · install ${esc(j.part||'the part')}. Nearest free time is picked for you.</p><p class="err" id="f-err" hidden></p>
+  <form id="book-form" novalidate>${placeFields(p.date,p.w,FIN,p.n,j.id)}
+  <div class="sheet-acts"><button type="button" class="btn ghost" id="cancel-btn">Cancel</button><button type="submit" class="btn primary">Book it</button></div></form>`);
+  wirePlace();$('#cancel-btn').onclick=closeSheet;
+  $('#book-form').onsubmit=async e=>{e.preventDefault();const pl=readPlace(j.id);if(!pl)return;
+    const ok=await write(()=>S.db.collection('jobs').doc(j.id).update({status:'booked',partStatus:'arrived',...pl,updatedAt:nowIso()}));
+    if(ok){closeSheet();S.day=pl.date;render()}else showErr('Could not save. Try again.')};
+}
+
+function openFill(w,n){
+  const ready=all().filter(j=>j.status==='part').sort((x,y)=>(x.partStatus==='arrived'?0:1)-(y.partStatus==='arrived'?0:1));
+  openSheet(`<h3>Finish a job</h3><p class="lead">${esc(wname(w))} · ${SL[n].label} ${SL[n].time} · ${fmt(S.day,{weekday:'short',month:'short',day:'numeric'})}. Pick the job whose part is here.</p><p class="err" id="f-err" hidden></p>
+  ${ready.length?`<div class="pick">${ready.map(j=>`<button type="button" data-pick="${j.id}"><b>${esc(j.customer||'No name')}${j.partStatus==='arrived'?' · part is here':' · part not marked as here'}</b><small>${esc(what(j))} · part: ${esc(j.part||'?')}</small></button>`).join('')}</div>`:'<p class="none" style="margin-bottom:12px">No jobs are waiting for parts.</p>'}
+  <div class="sheet-acts"><button type="button" class="btn ghost" id="cancel-btn">Close</button></div>`);
+  $('#cancel-btn').onclick=closeSheet;
+  document.querySelectorAll('[data-pick]').forEach(b=>b.onclick=async()=>{const j=S.jobs.get(b.dataset.pick);if(!j)return;
+    if(at(S.day,w,n))return showErr('Someone just took that time.');
+    const ok=await write(()=>S.db.collection('jobs').doc(j.id).update({status:'booked',partStatus:'arrived',date:S.day,worker:w,slot:n,updatedAt:nowIso()}));
+    ok?closeSheet():showErr('Could not save. Try again.')});
+}
+
+function openNames(){
+  const c=S.cfg;
+  openSheet(`<h3>Settings</h3><p class="lead">These fill in by themselves on each job. You can still change them on any job.</p><p class="err" id="f-err" hidden></p><form id="names-form" novalidate>
+  <div class="grid2">
+    <div class="field"><label for="n-a">First worker</label><input id="n-a" value="${esc(wname('a'))}"></div>
+    <div class="field"><label for="p-a">His % on done jobs</label><input id="p-a" inputmode="decimal" value="${c.pctA}"></div>
+    <div class="field"><label for="n-b">Second worker</label><input id="n-b" value="${esc(wname('b'))}"></div>
+    <div class="field"><label for="p-b">His % on done jobs</label><input id="p-b" inputmode="decimal" value="${c.pctB}"></div>
+    <div class="field"><label for="c-f">Call fee</label><input id="c-f" inputmode="decimal" value="${c.callFee}"></div>
+  </div>
+  <div class="sheet-acts"><button type="button" class="btn ghost" id="cancel-btn">Cancel</button><button type="submit" class="btn primary">Save</button></div></form>`);
+  $('#cancel-btn').onclick=closeSheet;
+  const n=id=>+$(id).value.replace(/[^0-9.]/g,'')||0;
+  $('#names-form').onsubmit=async e=>{e.preventDefault();const a=$('#n-a').value.trim()||'Worker 1',b=$('#n-b').value.trim()||'Worker 2';
+    const body={a,b,pctA:n('#p-a'),pctB:n('#p-b'),undonePct:c.undonePct,callFee:n('#c-f')};
+    if([body.pctA,body.pctB,body.undonePct].some(x=>x>100))return showErr('A % can’t be more than 100.');
+    const ok=await write(async()=>{await S.db.doc('config/workers').set(body);await S.db.doc('public/names').set({a,b})});
+    ok?closeSheet():showErr('Could not save. Try again.')};
+}
+
+/* ---------- writes ---------- */
+async function write(fn){
+  if(!S.db||S.busy)return false;S.busy=true;
+  try{await fn();return true}
+  catch(err){
+    if(err&&err.code==='unavailable'){await new Promise(r=>setTimeout(r,600+Math.random()*600));try{await fn();return true}catch(e2){err=e2}}
+    if(err&&err.code==='permission-denied'){closeSheet();note('That change isn’t allowed for your login. Finished jobs, money and settings can only be changed by Salah.','warn')}
+    if(err&&err.code==='resource-exhausted')note('The free database limit for today was reached. Try again tomorrow, or tell Salah.','warn');
+    console.warn(err);return false}
+  finally{S.busy=false}
+}
+
+/* ---------- clicks ---------- */
+document.addEventListener('click',async e=>{
+  const pb=e.target.closest('[data-pay]');
+  if(pb){if(!S.owner||!S.db)return;const d=parse(S.day),mon=addDays(S.day,-((d.getDay()+6)%7));const cur={...(S.pay.get(mon)||{})};const w=pb.dataset.pay;
+    if(pb.dataset.undo){delete cur[w]}else{cur[w]={amount:Number(pb.dataset.amt)||0,on:ymd(new Date()),at:nowIso()}}
+    S.pay.set(mon,cur);renderMoney();await write(()=>S.db.collection('pay').doc(mon).set(cur));return}
+  const lb=e.target.closest('[data-lost]');
+  if(lb){if(!S.owner||!S.db)return;const cur=S.lost.get(S.day)||{count:0,note:''};const count=Math.max(0,(cur.count||0)+Number(lb.dataset.lost));
+    if(count===(cur.count||0))return;S.lost.set(S.day,{...cur,count,fee:S.cfg.callFee});renderLost();renderMoney();
+    await write(()=>S.db.collection('lost').doc(S.day).set({count,note:cur.note||'',fee:S.cfg.callFee,updatedAt:nowIso()}));return}
+  const b=e.target.closest('[data-act],[data-day],[data-show]');if(!b||b.disabled)return;
+  if(b.dataset.show){S.show=b.dataset.show;try{localStorage.setItem('fennec-show',S.show)}catch(x){}render();return}
+  if(b.dataset.day){S.day=b.dataset.day;render();return}
+  const act=b.dataset.act,j=S.jobs.get(b.dataset.id);
+  if(act==='add')return openJob({},{date:S.day,w:b.dataset.w,slot:Number(b.dataset.s)});
+  if(act==='fill')return openFill(b.dataset.w,Number(b.dataset.s));
+  if(!j)return;
+  if(act==='edit')openJob(j,{});
+  else if(act==='done')openFinish(j,'done');
+  else if(act==='undone')openFinish(j,'undone');
+  else if(act==='money'){if(S.owner)openFinish(j,j.status)}
+  else if(act==='undo'&&S.owner)await write(()=>S.db.collection('jobs').doc(j.id).update({status:'booked',updatedAt:nowIso()}));
+  else if(act==='needpart')openNeedPart(j);
+  else if(act==='arrived'){if(await write(()=>S.db.collection('jobs').doc(j.id).update({partStatus:'arrived',partArrived:ymd(new Date())})))openBook({...j,partStatus:'arrived'})}
+  else if(act==='notyet')await write(()=>S.db.collection('jobs').doc(j.id).update({partStatus:'ordered'}));
+  else if(act==='book')openBook(j);
+});
+$('#prev-day').onclick=()=>{S.day=addDays(S.day,-1);render()};
+$('#next-day').onclick=()=>{S.day=addDays(S.day,1);render()};
+$('#today-btn').onclick=()=>{S.day=ymd(new Date());render()};
+$('#date-input').onchange=e=>{if(e.target.value){S.day=e.target.value;render()}};
+$('#names-btn').onclick=()=>{if(can()&&S.owner)openNames()};
+
+/* ---------- start ---------- */
+render();
+let unsubs=[],pick=null,publicNames={};
+function stopAll(){unsubs.forEach(u=>{try{u()}catch(e){}});unsubs=[]}
+function showLogin(){
+  $('#login').hidden=false;
+  const list=[['owner','Salah'],['a',publicNames.a||'Worker 1'],['b',publicNames.b||'Worker 2']];
+  $('#people').innerHTML=list.map(([k,l])=>`<button type="button" data-who="${k}" aria-pressed="${pick===k}">${esc(l)}</button>`).join('');
+  document.querySelectorAll('#people button').forEach(b=>b.onclick=()=>{pick=b.dataset.who;showLogin();$('#pin').focus()});
+}
+function setWho(){const w=$('#who');if(!S.db){w.hidden=true;return}w.hidden=false;
+  w.innerHTML=`Signed in as <b>${esc(S.owner?'Salah':wname(S.me))}</b> <button type="button" class="btn ghost sm" id="out-btn">Sign out</button>`;
+  $('#out-btn').onclick=()=>signOut(auth)}
+ref('public/names').get().then(s=>{if(s.exists){publicNames=s.data();if(!$('#login').hidden)showLogin()}}).catch(()=>{});
+$('#login-form').onsubmit=async e=>{e.preventDefault();const err=$('#login-err');err.hidden=true;
+  if(!pick){err.hidden=false;err.textContent='Tap your name first.';return}
+  const pin=$('#pin').value.trim();if(pin.length<6){err.hidden=false;err.textContent='The PIN has 6 digits.';return}
+  $('#login-btn').disabled=true;
+  try{await signInWithEmailAndPassword(auth,PEOPLE[pick],pin);$('#pin').value=''}
+  catch(x){err.hidden=false;err.textContent=x.code==='auth/too-many-requests'?'Too many tries. Wait a few minutes and try again.':(x.code==='auth/network-request-failed'?'No internet connection.':'Wrong PIN. Try again.')}
+  finally{$('#login-btn').disabled=false}};
+
+onAuthStateChanged(auth,user=>{
+  stopAll();closeSheet();
+  if(!user){S.db=null;S.owner=false;S.me=null;S.jobs=new Map();S.lost=new Map();S.pay=new Map();setWho();render();note('');showLogin();return}
+  const email=(user.email||'').toLowerCase();
+  S.owner=email===PEOPLE.owner;S.me=email===PEOPLE.a?'a':(email===PEOPLE.b?'b':null);S.uid=user.uid;
+  if(!S.owner&&!S.me){signOut(auth);return}
+  $('#login').hidden=true;S.db=DB;S.canWrite=true;
+  if(S.me){let saved=null;try{saved=localStorage.getItem('fennec-show')}catch(e){}if(!saved)S.show=S.me}
+  setWho();render();note('Loading jobs…');
+  let ready=false;
+  const timer=setTimeout(()=>note(ready?'Showing saved jobs. They may be out of date until the connection is back.':'Can’t reach the saved jobs yet. Check the connection.','warn'),10000);
+  unsubs.push(DB.collection('jobs').onSnapshot(snap=>{
+    S.jobs=new Map(snap.docs.map(d=>[d.id,{id:d.id,...d.data()}]));
+    if(!snap.metadata.fromCache){clearTimeout(timer);ready=true;note('')}
+    render();
+  },()=>{clearTimeout(timer);note('The board stopped updating. Reload the page to reconnect.','warn')}));
+  if(S.owner)unsubs.push(DB.collection('pay').onSnapshot(snap=>{S.pay=new Map(snap.docs.map(d=>[d.id,d.data()]));renderMoney()},()=>{}));
+  if(S.owner)unsubs.push(DB.collection('lost').onSnapshot(snap=>{S.lost=new Map(snap.docs.map(d=>[d.id,d.data()]));renderLost();renderMoney()},()=>{}));
+  unsubs.push(DB.doc('config/workers').onSnapshot(s=>{
+    if(s.exists){const d=s.data();S.workers={a:d.a||'Worker 1',b:d.b||'Worker 2'};
+      S.cfg={callFee:d.callFee??65,pctA:d.pctA??50,pctB:d.pctB??50,undonePct:d.undonePct??75};setWho();render()}
+    else if(S.owner){DB.doc('config/workers').set({a:'Worker 1',b:'Worker 2',pctA:50,pctB:50,undonePct:75,callFee:65}).catch(()=>{});DB.doc('public/names').set({a:'Worker 1',b:'Worker 2'}).catch(()=>{})}
+  },()=>{}));
+});
+</script>
+</body>
+</html>
