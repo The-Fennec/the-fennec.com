@@ -190,6 +190,7 @@ img{max-width:100%}
 .people{display:grid;gap:8px}
 .people button{border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:12px 14px;text-align:left;font-weight:600;font-size:17px;min-height:50px}
 .people button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+#uname{font-size:18px;width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--bg)}
 #pin{font-family:var(--f-mono);font-size:26px;letter-spacing:.4em;text-align:center;width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--bg)}
 .login-card .btn{width:100%;min-height:50px;font-size:17px}
 </style>
@@ -199,8 +200,9 @@ img{max-width:100%}
 <div class="login" id="login" hidden>
   <form class="login-card" id="login-form" novalidate>
     <h1>Fennec Job Board</h1>
-    <p>Tap your name, then type your 6-digit PIN.</p>
-    <div class="people" id="people" role="group" aria-label="Who are you"></div>
+    <p>Type your username and your 6-digit PIN.</p>
+    <label class="lbl" for="uname" style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)">Username</label>
+    <input id="uname" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Your first name">
     <label class="lbl" for="pin" style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)">PIN</label>
     <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="12" placeholder="••••••">
     <p class="err" id="login-err" hidden></p>
@@ -613,22 +615,25 @@ $('#names-btn').onclick=()=>{if(can()&&S.owner)openNames()};
 render();
 let unsubs=[],pick=null,publicNames={};
 function stopAll(){unsubs.forEach(u=>{try{u()}catch(e){}});unsubs=[]}
-function showLogin(){
-  $('#login').hidden=false;
-  const list=[['owner','Salah'],['a',publicNames.a||'Mohamed'],['b',publicNames.b||'Mahdi']];
-  $('#people').innerHTML=list.map(([k,l])=>`<button type="button" data-who="${k}" aria-pressed="${pick===k}">${esc(l)}</button>`).join('');
-  document.querySelectorAll('#people button').forEach(b=>b.onclick=()=>{pick=b.dataset.who;showLogin();$('#pin').focus()});
-}
+function showLogin(){$('#login').hidden=false}
+/* Username = first name (or worker1 / worker2). Not case sensitive. */
+function whoFromName(v){const n=v.trim().toLowerCase();if(!n)return null;
+  if(n==='salah')return 'owner';
+  if(n===(publicNames.a||'mohamed').toLowerCase()||n==='mohamed'||n==='worker1')return 'a';
+  if(n===(publicNames.b||'mahdi').toLowerCase()||n==='mahdi'||n==='worker2')return 'b';
+  return null}
 function setWho(){const w=$('#who');if(!S.db){w.hidden=true;return}w.hidden=false;
   w.innerHTML=`Signed in as <b>${esc(S.owner?'Salah':wname(S.me))}</b> <button type="button" class="btn ghost sm" id="out-btn">Sign out</button>`;
   $('#out-btn').onclick=()=>signOut(auth)}
-ref('public/names').get().then(s=>{if(s.exists){publicNames=s.data();if(!$('#login').hidden)showLogin()}}).catch(()=>{});
+ref('public/names').get().then(s=>{if(s.exists)publicNames=s.data()}).catch(()=>{});
 $('#login-form').onsubmit=async e=>{e.preventDefault();const err=$('#login-err');err.hidden=true;
-  if(!pick){err.hidden=false;err.textContent='Tap your name first.';return}
+  pick=whoFromName($('#uname').value);
+  if(!$('#uname').value.trim()){err.hidden=false;err.textContent='Type your username.';return}
   const pin=$('#pin').value.trim();if(pin.length<6){err.hidden=false;err.textContent='The PIN has 6 digits.';return}
   $('#login-btn').disabled=true;
+  if(!pick){err.hidden=false;err.textContent='Wrong username or PIN.';$('#login-btn').disabled=false;return}
   try{await signInWithEmailAndPassword(auth,PEOPLE[pick],pin);$('#pin').value=''}
-  catch(x){err.hidden=false;err.textContent=x.code==='auth/too-many-requests'?'Too many tries. Wait a few minutes and try again.':(x.code==='auth/network-request-failed'?'No internet connection.':'Wrong PIN. Try again.')}
+  catch(x){err.hidden=false;err.textContent=x.code==='auth/too-many-requests'?'Too many tries. Wait a few minutes and try again.':(x.code==='auth/network-request-failed'?'No internet connection.':'Wrong username or PIN.')}
   finally{$('#login-btn').disabled=false}};
 
 onAuthStateChanged(auth,user=>{
