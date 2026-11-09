@@ -80,6 +80,8 @@ h2.sec{font-family:var(--f-display);font-weight:700;font-size:21px;text-transfor
 
 .crew{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
 .crew.one{grid-template-columns:minmax(0,1fr);max-width:620px}
+.crew.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:1100px){.crew.three{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:760px){.crew{grid-template-columns:minmax(0,1fr)}}
 .col{display:grid;gap:8px;align-content:start;min-width:0}
 .colhead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding-bottom:6px;border-bottom:2px solid var(--ink)}
@@ -273,7 +275,8 @@ const SLOTS=[
 const BREAKS={3:['12:30–1:00','Dhuhr · lunch'],4:['2:30–3:00','Asr'],5:['5:00','Maghrib']};
 const NEW=SLOTS.filter(s=>!s.f).map(s=>s.n), FIN=SLOTS.filter(s=>s.f).map(s=>s.n);
 const SL=Object.fromEntries(SLOTS.map(s=>[s.n,s]));
-const W=['a','b'];
+const W=['a','b'];          // workers on payroll
+const COLS=['o','a','b'];   // people on the schedule: Salah + workers
 const APPLIANCES=['Fridge','Freezer','Washer','Dryer','Oven / Range','Cooktop','Dishwasher','Wine cooler','Ice maker','Other'];
 const S={pay:new Map(),lost:new Map(),jobs:new Map(),workers:{a:'Mohamed',b:'Mahdi'},cfg:{callFee:65,pctA:50,pctB:35,undonePct:75},owner:false,day:ymd(new Date()),db:null,canWrite:true,canWriteUnknown:false,ready:false,busy:false,show:'both'};
 /* Salah's formula: worker pay = (total − parts − call fee) × worker %, profit = the rest. A job marked Lost call (status undone) is split 1/3 each. */
@@ -281,7 +284,7 @@ function money(j){const t=+j.total||0,p=+j.parts||0,c=+j.callFee||0,dep=+j.depos
   if(j.status==='undone'){const s=Math.round(base/3*100)/100;return {t,p,c,dep,rest:t-dep,worker:s,other:s,profit:Math.round((base-2*s)*100)/100}} /* undone: you and both workers each take 1/3 */
   const worker=Math.round(base*pct*100)/100;return {t,p,c,dep,rest:t-dep,worker,other:0,profit:Math.round((base-worker)*100)/100}}
 function usd(n){n=Number(n)||0;return (n<0?'-':'')+'$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
-function wpct(w){return w==='b'?S.cfg.pctB:S.cfg.pctA}
+function wpct(w){return w==='o'?0:(w==='b'?S.cfg.pctB:S.cfg.pctA)}
 function closed(j){return j.status==='done'||j.status==='undone'}
 try{const v=localStorage.getItem('fennec-show');if(v)S.show=v}catch(e){}
 
@@ -295,7 +298,7 @@ function all(){return [...S.jobs.values()]}
 function onBoard(j){return j.status!=='part'&&j.date&&SL[j.slot]}
 function at(date,w,n){return all().find(j=>onBoard(j)&&j.date===date&&j.worker===w&&j.slot===n)}
 function count(date,w,list){return all().filter(j=>onBoard(j)&&j.date===date&&j.worker===w&&list.includes(j.slot)).length}
-function wname(w){return S.workers[w]||(w==='a'?'Worker 1':'Worker 2')}
+function wname(w){return w==='o'?'Salah':(S.workers[w]||(w==='a'?'Worker 1':'Worker 2'))}
 function newId(){return 'j'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 function can(){return !!S.db&&S.canWrite}
 function note(t,k){const n=$('#status-note');if(!t){n.hidden=true;return}n.hidden=false;n.textContent=t;n.dataset.kind=k||''}
@@ -307,19 +310,19 @@ function render(){
   const today=ymd(new Date());
   $('#date-input').value=S.day;
   $('#day-title').textContent=(S.day===today?'Today · ':'')+fmt(S.day,{weekday:'long',month:'long',day:'numeric'});
-  const shown=S.me?[S.me]:(S.show==='both'?W:[S.show]);
+  const shown=S.me?[S.me]:(S.show==='both'?COLS:[S.show]);
   const nNew=shown.reduce((t,w)=>t+count(S.day,w,NEW),0), nFin=shown.reduce((t,w)=>t+count(S.day,w,FIN),0);
   $('#day-sub').textContent=`${nNew} of ${shown.length*3} new jobs · ${nFin} of ${shown.length*3} finish visits`;
 
   $('#tabs').hidden=!!S.me;
-  $('#tabs').innerHTML=S.me?'':[['both','Both workers'],['a',wname('a')],['b',wname('b')]].map(([k,l])=>`<button class="tab" data-show="${k}" aria-pressed="${S.show===k}">${esc(l)}</button>`).join('');
+  $('#tabs').innerHTML=S.me?'':[['both','Everyone'],['o','Salah'],['a',wname('a')],['b',wname('b')]].map(([k,l])=>`<button class="tab" data-show="${k}" aria-pressed="${S.show===k}">${esc(l)}</button>`).join('');
 
   const d=parse(S.day),mon=addDays(S.day,-((d.getDay()+6)%7));let wk='';
   for(let i=0;i<7;i++){const day=addDays(mon,i);
     wk+=`<button class="wday${day===S.day?' sel':''}${day===today?' today':''}" data-day="${day}" aria-label="${fmt(day,{weekday:'long',month:'long',day:'numeric'})}"><span class="dn">${fmt(day,{weekday:'short'})}</span><span class="dd">${parse(day).getDate()}</span><span class="loads">${shown.map(w=>{const c=count(day,w,NEW),f=count(day,w,FIN);return `<span class="load" title="${esc(wname(w))}: ${c}/3 new, ${f}/3 finish">${[0,1,2].map(k=>`<i class="${k<c?'on':''}"></i>`).join('')}${[0,1,2].map(k=>`<i class="f${k<f?' on':''}"></i>`).join('')}</span>`}).join('')}</span></button>`}
   $('#week').innerHTML=wk;
 
-  const crew=$('#crew');crew.className='crew'+(shown.length===1?' one':'');
+  const crew=$('#crew');crew.className='crew'+(shown.length===1?' one':(shown.length===3?' three':''));
   crew.innerHTML=shown.map(w=>`<div class="col"><div class="colhead"><h3>${esc(wname(w))}</h3><span class="count">${count(S.day,w,NEW)}/3 new · ${count(S.day,w,FIN)}/3 finish</span></div>
     ${SLOTS.map(s=>{const j=at(S.day,w,s.n);const b=BREAKS[s.n];
       return `<div class="slot${s.f?' f':''}"><div class="when"><span class="k">${s.label}</span><span class="t">${s.time}</span></div>${j?card(j):empty(w,s)}</div>`+(b?`<div class="brk"><span class="t">${b[0]}</span><span>${b[1]}</span></div>`:'')}).join('')}</div>`).join('');
@@ -359,17 +362,17 @@ function renderMoney(){
   const d=parse(S.day),mon=addDays(S.day,-((d.getDay()+6)%7)),sun=addDays(mon,6);
   const mStart=S.day.slice(0,8)+'01',mEnd=ymd(new Date(d.getFullYear(),d.getMonth()+1,0));
   /* Lost calls = calls you marked in the Lost calls box + jobs marked "Lost call". Both are split 1/3 each. */
-  const sum=(from,to)=>{const r={done:0,un:0,t:0,c:0,p:0,profit:0,unCost:0,unMine:0,by:{a:{done:0,pay:0,lost:0},b:{done:0,pay:0,lost:0}}};
+  const sum=(from,to)=>{const r={mine:0,done:0,un:0,t:0,c:0,p:0,profit:0,unCost:0,unMine:0,by:{a:{done:0,pay:0,lost:0},b:{done:0,pay:0,lost:0}}};
     all().filter(j=>closed(j)&&j.date>=from&&j.date<=to).forEach(j=>{const m=money(j);
-      if(j.status==='done'){r.done++;r.t+=m.t;r.c+=m.c;r.p+=m.p;r.profit+=m.profit;const b=r.by[j.worker];if(b){b.done++;b.pay+=m.worker}}
-      else{r.un++;r.unCost+=m.c+m.p-m.t;r.unMine+=-m.profit;const b=r.by[j.worker],o=r.by[j.worker==='a'?'b':'a'];if(b)b.lost+=-m.worker;if(o)o.lost+=-m.other}});return r};
+      if(j.status==='done'){r.done++;if(j.worker==='o')r.mine++;r.t+=m.t;r.c+=m.c;r.p+=m.p;r.profit+=m.profit;const b=r.by[j.worker];if(b){b.done++;b.pay+=m.worker}}
+      else{r.un++;r.unCost+=m.c+m.p-m.t;r.unMine+=-m.profit;if(j.worker==='o'){r.by.a.lost+=-m.worker;r.by.b.lost+=-m.other}else{const b=r.by[j.worker],o=r.by[j.worker==='a'?'b':'a'];if(b)b.lost+=-m.worker;if(o)o.lost+=-m.other}}});return r};
   const wk=sum(mon,sun),mo=sum(mStart,mEnd);
   const lostSum=(from,to)=>{let n=0,c=0;S.lost.forEach((v,k)=>{if(k>=from&&k<=to){n+=v.count||0;c+=(v.count||0)*(v.fee??S.cfg.callFee)}});return {n,c}};
   const lw=lostSum(mon,sun),lm=lostSum(mStart,mEnd);
   const neg=n=>n<0?' class="neg"':'';
   $('#money-sub').textContent='Only you see this part · week of '+fmt(mon)+' and '+fmt(S.day,{month:'long'});
   $('#money').innerHTML=`<div class="mtable"><table><thead><tr><th></th><th>This week</th><th>${esc(fmt(S.day,{month:'long'}))}</th></tr></thead><tbody>
-    <tr><td>Jobs done</td><td>${wk.done}</td><td>${mo.done}</td></tr>
+    <tr><td>Jobs done <span class="sub">(${wk.mine} by you)</span></td><td>${wk.done}</td><td>${mo.done}</td></tr>
     <tr><td>Charged</td><td>${usd(wk.t)}</td><td>${usd(mo.t)}</td></tr>
     <tr><td>Parts</td><td>${usd(wk.p)}</td><td>${usd(mo.p)}</td></tr>
     <tr><td>Call fees on done jobs</td><td>${usd(wk.c)}</td><td>${usd(mo.c)}</td></tr>
@@ -400,12 +403,12 @@ function openFinish(j,kind){
       <div class="field"><label for="m-parts">Parts cost</label><input id="m-parts" inputmode="decimal" value="${j.parts??0}"></div>
       <div class="field"><label for="m-call">Call fee</label><input id="m-call" inputmode="decimal" value="${callFee}"${S.owner?'':' readonly'}></div>
     </div>
-    ${isUn?`<p class="sub" style="margin:0 0 12px">The loss is split 3 ways: you, ${esc(wname('a'))} and ${esc(wname('b'))} each pay 1/3.</p><input type="hidden" id="m-pct" value="33.33">`:`<div class="field"><label for="m-pct">${esc(wname(j.worker))}'s %${S.owner?'':' (set by Salah)'}</label><input id="m-pct" inputmode="decimal" value="${pct}"${S.owner?'':' readonly'}></div>`}
+    ${(!isUn&&j.worker==='o')?`<p class="sub" style="margin:0 0 12px">Your own job: you keep everything after parts and the call fee.</p><input type="hidden" id="m-pct" value="0">`:isUn?`<p class="sub" style="margin:0 0 12px">The loss is split 3 ways: you, ${esc(wname('a'))} and ${esc(wname('b'))} each pay 1/3.</p><input type="hidden" id="m-pct" value="33.33">`:`<div class="field"><label for="m-pct">${esc(wname(j.worker))}'s %${S.owner?'':' (set by Salah)'}</label><input id="m-pct" inputmode="decimal" value="${pct}"${S.owner?'':' readonly'}></div>`}
     <div class="calc" id="m-calc"></div>
     <div class="sheet-acts"><button type="button" class="btn ghost" id="cancel-btn">Cancel</button><button type="submit" class="btn primary">${isUn?'Save as lost call':'Save, job done'}</button></div>
   </form>`);
   const read=()=>({total:+$('#m-total').value.replace(/[^0-9.]/g,'')||0,deposit:+$('#m-deposit').value.replace(/[^0-9.]/g,'')||0,parts:+$('#m-parts').value.replace(/[^0-9.]/g,'')||0,callFee:+$('#m-call').value.replace(/[^0-9.]/g,'')||0,pct:+$('#m-pct').value.replace(/[^0-9.]/g,'')||0});
-  const calc=()=>{const m=money({...read(),status:kind});$('#m-calc').innerHTML=`<div><span>Customer owes</span><b>${usd(m.rest)}</b></div><div><span>${isUn?'Each pays':esc(wname(j.worker))+' gets'}</span><b class="${m.worker<0&&!isUn?'neg':''}">${usd(isUn?-m.worker:m.worker)}</b></div>${S.owner?`<div><span>Your profit</span><b class="${m.profit<0?'neg':''}">${usd(m.profit)}</b></div>`:''}`};
+  const calc=()=>{const m=money({...read(),status:kind});$('#m-calc').innerHTML=`<div><span>Customer owes</span><b>${usd(m.rest)}</b></div>${(!isUn&&j.worker==='o')?'':`<div><span>${isUn?'Each pays':esc(wname(j.worker))+' gets'}</span><b class="${m.worker<0&&!isUn?'neg':''}">${usd(isUn?-m.worker:m.worker)}</b></div>`}${S.owner?`<div><span>Your profit</span><b class="${m.profit<0?'neg':''}">${usd(m.profit)}</b></div>`:''}`};
   document.querySelectorAll('#fin-form input').forEach(i=>i.addEventListener('input',calc));calc();
   $('#m-total').focus();$('#cancel-btn').onclick=closeSheet;
   $('#fin-form').onsubmit=async e=>{e.preventDefault();const v=read();
@@ -428,7 +431,7 @@ function card(j){
     :`<button class="btn sm donebtn" data-act="done" data-id="${j.id}">Done</button><button class="btn sm fin" data-act="needpart" data-id="${j.id}">${fin?'Needs another part':'Needs part'}</button><button class="btn sm ghost" data-act="undone" data-id="${j.id}">Lost call</button><button class="btn sm ghost" data-act="edit" data-id="${j.id}">Edit</button>`;
   let cash='';
   if(done||un){const m=money(j);
-    cash=`<div class="cash">${done?`<span>Charged <b>${usd(m.t)}</b></span>${m.dep?`<span>Deposit <b>${usd(m.dep)}</b></span>`:''}${m.p?`<span>Parts <b>${usd(m.p)}</b></span>`:''}`:''}<span>${un?'Split 3 ways, each pays':esc(wname(j.worker))+' gets'} <b class="${m.worker<0&&!un?'neg':''}">${usd(un?-m.worker:m.worker)}</b></span>${S.owner?`<span>Profit <b class="${m.profit<0?'neg':''}">${usd(m.profit)}</b></span>`:''}</div>${S.owner&&(j.history||[]).length>1?`<p class="sub neg">Money changed ${(j.history.length-1)} time${j.history.length>2?'s':''} after first save. First: charged ${usd(j.history[0].total)}, parts ${usd(j.history[0].parts)}</p>`:''}`}
+    cash=`<div class="cash">${done?`<span>Charged <b>${usd(m.t)}</b></span>${m.dep?`<span>Deposit <b>${usd(m.dep)}</b></span>`:''}${m.p?`<span>Parts <b>${usd(m.p)}</b></span>`:''}`:''}${(!un&&j.worker==='o')?'':`<span>${un?'Split 3 ways, each pays':esc(wname(j.worker))+' gets'} <b class="${m.worker<0&&!un?'neg':''}">${usd(un?-m.worker:m.worker)}</b></span>`}${S.owner?`<span>Profit <b class="${m.profit<0?'neg':''}">${usd(m.profit)}</b></span>`:''}</div>${S.owner&&(j.history||[]).length>1?`<p class="sub neg">Money changed ${(j.history.length-1)} time${j.history.length>2?'s':''} after first save. First: charged ${usd(j.history[0].total)}, parts ${usd(j.history[0].parts)}</p>`:''}`}
   return `<article class="job${done?' done':''}${un?' undone':''}">
     <h4>${esc(j.customer||'No name')}${done?'<span class="tag dn">Done</span>':''}${un?'<span class="tag un">Lost call</span>':''}</h4>${cash}
     ${what(j).trim()?`<p class="what">${esc(what(j))}</p>`:''}
@@ -464,7 +467,7 @@ function slotOpts(date,w,list,cur,self){
   return list.map(n=>{const t=at(date,w,n),taken=t&&t.id!==self;return `<option value="${n}"${taken?' disabled':''}${n===cur?' selected':''}>${SL[n].label} · ${SL[n].time}${taken?' · taken':''}</option>`}).join('')}
 function firstFree(date,w,list,self){return list.find(n=>{const t=at(date,w,n);return !t||t.id===self})}
 function placeFields(date,w,list,cur,self){
-  return `<div class="grid2"><div class="field"><label for="f-worker">Worker</label><select id="f-worker">${(S.me?[S.me]:W).map(x=>`<option value="${x}"${x===w?' selected':''}>${esc(wname(x))}</option>`).join('')}</select></div>
+  return `<div class="grid2"><div class="field"><label for="f-worker">Worker</label><select id="f-worker">${(S.me?[S.me]:COLS).map(x=>`<option value="${x}"${x===w?' selected':''}>${esc(wname(x))}</option>`).join('')}</select></div>
   <div class="field"><label for="f-date">Day</label><input type="date" id="f-date" value="${date}"></div></div>
   <div class="field"><label for="f-slot">Time</label><select id="f-slot" data-list="${list.join(',')}" data-self="${self||''}">${slotOpts(date,w,list,cur,self)}</select></div>`}
 function wirePlace(){
@@ -526,7 +529,7 @@ function openNeedPart(j){
     ok?closeSheet():showErr('Could not save. Try again.')};
 }
 
-function nearestFin(pref){const t=ymd(new Date());for(let i=0;i<30;i++){const d=addDays(t,i);for(const w of (S.me?[S.me]:[pref,...W.filter(x=>x!==pref)])){const n=firstFree(d,w,FIN);if(n)return {date:d,w,n}}}return {date:t,w:pref,n:FIN[0]}}
+function nearestFin(pref){const t=ymd(new Date());for(let i=0;i<30;i++){const d=addDays(t,i);for(const w of (S.me?[S.me]:[pref,...COLS.filter(x=>x!==pref)])){const n=firstFree(d,w,FIN);if(n)return {date:d,w,n}}}return {date:t,w:pref,n:FIN[0]}}
 function openBook(j){
   const p=nearestFin(j.worker||'a');
   openSheet(`<h3>Book finish visit</h3><p class="lead">${esc(j.customer||'')} · install ${esc(j.part||'the part')}. Nearest free time is picked for you.</p><p class="err" id="f-err" hidden></p>
