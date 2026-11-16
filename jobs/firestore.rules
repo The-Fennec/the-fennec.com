@@ -4,9 +4,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function email() { return request.auth != null ? request.auth.token.email : ''; }
     function isOwner() { return email() == 'salah@the-fennec.com'; }
+    function isDisp() { return email() == 'dispatch@the-fennec.com'; }
+    function isBot() { return email() == 'bot@the-fennec.com'; }
     function isWorker() { return email() in ['worker1@the-fennec.com', 'worker2@the-fennec.com']; }
-    function isTeam() { return isOwner() || isWorker(); }
-    function myLetter() { return email() == 'worker1@the-fennec.com' ? 'a' : (email() == 'worker2@the-fennec.com' ? 'b' : 'none'); }
+    function isStaff() { return isOwner() || isDisp(); }
+    function myLetter() { return email() == 'worker1@the-fennec.com' ? 'a' : (email() == 'worker2@the-fennec.com' ? 'b' : (email() == 'dispatch@the-fennec.com' ? 'd' : 'none')); }
     function cfg() { return get(/databases/$(database)/documents/config/workers).data; }
     function closedStatus(d) { return d.get('status', '') in ['done', 'undone']; }
     // When a worker closes a job, the call fee and his % must match Salah's settings.
@@ -22,16 +24,45 @@ service cloud.firestore {
     match /public/{docId} { allow read: if true; allow write: if isOwner(); }
     // Settings (both workers' %): Salah only
     match /config/{docId} { allow read, write: if isOwner(); }
-    // Each worker reads only his own % and call fee
+    // Each person reads only his own % / call fee / notification channel
     match /team/{letter} { allow read: if isOwner() || myLetter() == letter; allow write: if isOwner(); }
-    // Lost calls and payday: Salah only
-    match /lost/{docId} { allow read, write: if isOwner(); }
+    // Notification channels: Salah and Kaylyn (to send "new job"), and the robot (8:01 am / 8:00 pm)
+    match /notify/{docId} { allow read: if isStaff() || isBot(); allow write: if isOwner(); }
+    // Lost calls: Salah and Kaylyn. Payday: Salah only
+    match /lost/{docId} { allow read, write: if isStaff(); }
     match /pay/{docId} { allow read, write: if isOwner(); }
-    // Jobs: each worker sees and changes only his own open jobs; finished jobs and deleting are Salah only
+    // The robot marks each timed message as sent so it goes out once a day
+    match /sent/{docId} { allow read: if isOwner() || isBot(); allow create: if isOwner() || isBot(); allow update, delete: if isOwner(); }
+
+    // Morning Ready tap: a worker can tap once per day for himself, with Google's server time. Nobody but Salah can change it.
+    match /ready/{readyId} {
+      allow read: if isStaff() || isBot() || (isWorker() && resource.data.who == myLetter());
+      allow create: if isWorker() && request.resource.data.who == myLetter()
+        && readyId == myLetter() + '_' + request.resource.data.date
+        && request.resource.data.at == request.time
+        && request.resource.data.keys().hasOnly(['who', 'date', 'at']);
+      allow update, delete: if isOwner();
+    }
+    // Reason for a missed Ready: the worker writes it once; only Salah approves or rejects
+    match /excuse/{excuseId} {
+      allow read: if isStaff() || (isWorker() && resource.data.who == myLetter());
+      allow create: if isOwner() || (isWorker() && request.resource.data.who == myLetter()
+        && excuseId == myLetter() + '_' + request.resource.data.date
+        && request.resource.data.status == 'pending'
+        && request.resource.data.keys().hasOnly(['who', 'date', 'text', 'status', 'at']));
+      allow update, delete: if isOwner();
+    }
+
+    // Jobs: Salah everything; Kaylyn adds and changes open jobs for anyone (never finishes or deletes);
+    // each worker sees and changes only his own open jobs; the robot only reads.
     match /jobs/{jobId} {
-      allow read: if isOwner() || (isWorker() && resource.data.worker == myLetter());
-      allow create: if isOwner() || (isWorker() && request.resource.data.get('worker', '') == myLetter() && !closedStatus(request.resource.data));
-      allow update: if isOwner() || (isWorker() && resource.data.get('worker', '') == myLetter() && request.resource.data.get('worker', '') == myLetter() && !closedStatus(resource.data) && moneyOk(request.resource.data));
+      allow read: if isStaff() || isBot() || (isWorker() && resource.data.worker == myLetter());
+      allow create: if isOwner()
+        || (isDisp() && !closedStatus(request.resource.data))
+        || (isWorker() && request.resource.data.get('worker', '') == myLetter() && !closedStatus(request.resource.data));
+      allow update: if isOwner()
+        || (isDisp() && !closedStatus(resource.data) && !closedStatus(request.resource.data))
+        || (isWorker() && resource.data.get('worker', '') == myLetter() && request.resource.data.get('worker', '') == myLetter() && !closedStatus(resource.data) && moneyOk(request.resource.data));
       allow delete: if isOwner();
     }
   }

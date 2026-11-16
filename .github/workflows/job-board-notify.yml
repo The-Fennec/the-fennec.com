@@ -1,0 +1,31 @@
+name: Job board notifications
+
+# 8:01 am and 8:00 pm in New York. GitHub runs times in UTC, so each one is scheduled for both
+# winter (EST) and summer (EDT) hours; the script only sends at the right New York time, once a day.
+on:
+  schedule:
+    - cron: '1,16,31,46 12,13 * * *'   # morning check: 8:01 am New York
+    - cron: '0,15,30,45 0,1 * * *'     # night reminder: 8:00 pm New York
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Send now: morning or night (leave empty to follow the clock)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node tools/notify.mjs
+        env:
+          BOT_PASSWORD: ${{ secrets.BOT_PASSWORD }}
+          MODE: ${{ github.event.inputs.mode }}

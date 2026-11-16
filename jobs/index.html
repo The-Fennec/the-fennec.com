@@ -195,6 +195,25 @@ img{max-width:100%}
 #uname{font-size:18px;width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--bg)}
 #pin{font-family:var(--f-mono);font-size:26px;letter-spacing:.4em;text-align:center;width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--bg)}
 .login-card .btn{width:100%;min-height:50px;font-size:17px}
+.readybox{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:10px}
+.readybox h3{font-family:var(--f-display);font-weight:700;font-size:20px;text-transform:uppercase;letter-spacing:.03em;margin:0}
+.readybox p{margin:0}
+.rrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.rrow > b{min-width:90px}
+.ok{color:var(--done);font-weight:700}
+.no{color:var(--danger);font-weight:700}
+.tag.late{background:var(--danger);color:var(--surface)}
+.warnline{color:var(--danger);font-weight:600}
+.btn.big{min-height:64px;font-size:22px;font-family:var(--f-display);text-transform:uppercase;letter-spacing:.05em;width:100%}
+.excuse{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:10px}
+.excuse textarea{width:100%;min-height:60px;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--bg)}
+.excuse .btn{justify-self:start}
+.rextra{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:10px}
+.notif{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:8px}
+.notif h3{font-family:var(--f-display);font-weight:700;font-size:20px;text-transform:uppercase;letter-spacing:.03em;margin:0}
+.notif p,.notif ol{margin:0}
+.notif ol{padding-left:20px;display:grid;gap:6px}
+.topic{font-family:var(--f-mono);font-size:15px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 10px;user-select:all;overflow-wrap:anywhere}
 </style>
 </head>
 <body>
@@ -232,6 +251,7 @@ img{max-width:100%}
   <div class="notice" id="status-note">Loading jobs…</div>
   <nav class="week" id="week" aria-label="This week"></nav>
   <div class="dayhead"><h2 class="sec" id="day-title">Today</h2><span class="muted" id="day-sub"></span></div>
+  <section class="readybox" id="ready-sec" hidden></section>
   <section class="lost" id="lost-sec" hidden></section>
   <section class="crew" id="crew"></section>
   <section style="display:grid;gap:10px">
@@ -242,6 +262,7 @@ img{max-width:100%}
     <div class="dayhead"><h2 class="sec">Money</h2><span class="muted" id="money-sub">Only you see this part</span></div>
     <div id="money"></div>
   </section>
+  <section class="notif" id="notif-sec" hidden></section>
   <p class="sub" style="margin:0"><button class="btn ghost sm" id="names-btn">Settings: worker names, %, call fee</button></p>
 </main>
 
@@ -250,14 +271,14 @@ img{max-width:100%}
 <script type="module">
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import {initializeFirestore,persistentLocalCache,collection as fsCol,doc as fsDoc,setDoc,updateDoc,deleteDoc,onSnapshot,getDoc,query,where} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import {initializeFirestore,persistentLocalCache,collection as fsCol,doc as fsDoc,setDoc,updateDoc,deleteDoc,onSnapshot,getDoc,query,where,serverTimestamp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 /* Firebase project fennec-jobs. This config is public by design; the logins and the database rules are the lock. */
 const app=initializeApp({apiKey:"AIzaSyCIRh114KrUBnrr3hiLMOVOSnQi7ih_--c",authDomain:"fennec-jobs.firebaseapp.com",projectId:"fennec-jobs",storageBucket:"fennec-jobs.firebasestorage.app",messagingSenderId:"774958070623",appId:"1:774958070623:web:4b54505bdb200728b914ea"});
 const auth=getAuth(app);
 let fs;try{fs=initializeFirestore(app,{localCache:persistentLocalCache()})}catch(e){fs=initializeFirestore(app,{})}
 /* Who is who: login emails (not real mailboxes) */
-const PEOPLE={owner:'salah@the-fennec.com',a:'worker1@the-fennec.com',b:'worker2@the-fennec.com'};
+const PEOPLE={owner:'salah@the-fennec.com',a:'worker1@the-fennec.com',b:'worker2@the-fennec.com',d:'dispatch@the-fennec.com'};
 /* Small adapter so the board code below talks to Firestore the same way it talked to the old store */
 function ref(path){const r=fsDoc(fs,path);return {id:r.id,set:d=>setDoc(r,d),update:d=>updateDoc(r,d),delete:()=>deleteDoc(r),get:async()=>{const s=await getDoc(r);return {exists:s.exists(),data:()=>s.data()}},
   onSnapshot:(next,err)=>onSnapshot(r,s=>next({exists:s.exists(),data:()=>s.data()}),err)}}
@@ -278,7 +299,7 @@ const SL=Object.fromEntries(SLOTS.map(s=>[s.n,s]));
 const W=['a','b'];          // workers on payroll
 const COLS=['o','a','b'];   // people on the schedule: Salah + workers
 const APPLIANCES=['Fridge','Freezer','Washer','Dryer','Oven / Range','Cooktop','Dishwasher','Wine cooler','Ice maker','Other'];
-const S={pay:new Map(),lost:new Map(),jobs:new Map(),workers:{a:'Mohamed',b:'Mahdi'},cfg:{callFee:65,pctA:50,pctB:35,undonePct:75},owner:false,day:ymd(new Date()),db:null,canWrite:true,canWriteUnknown:false,ready:false,busy:false,show:'both'};
+const S={readyDocs:new Map(),excuses:new Map(),topics:{},myTopic:'',disp:false,pay:new Map(),lost:new Map(),jobs:new Map(),workers:{a:'Mohamed',b:'Mahdi'},cfg:{callFee:65,pctA:50,pctB:35,undonePct:75},owner:false,day:ymd(new Date()),db:null,canWrite:true,canWriteUnknown:false,ready:false,busy:false,show:'both'};
 /* Salah's formula: worker pay = (total − parts − call fee) × worker %, profit = the rest. A job marked Lost call (status undone) is split 1/3 each. */
 function money(j){const t=+j.total||0,p=+j.parts||0,c=+j.callFee||0,dep=+j.deposit||0,pct=(+j.pct||0)/100;const base=t-p-c;
   if(j.status==='undone'){const s=Math.round(base/3*100)/100;return {t,p,c,dep,rest:t-dep,worker:s,other:s,profit:Math.round((base-2*s)*100)/100}} /* undone: you and both workers each take 1/3 */
@@ -298,12 +319,50 @@ function all(){return [...S.jobs.values()]}
 function onBoard(j){return j.status!=='part'&&j.date&&SL[j.slot]}
 function at(date,w,n){return all().find(j=>onBoard(j)&&j.date===date&&j.worker===w&&j.slot===n)}
 function count(date,w,list){return all().filter(j=>onBoard(j)&&j.date===date&&j.worker===w&&list.includes(j.slot)).length}
-function wname(w){return w==='o'?'Salah':(S.workers[w]||(w==='a'?'Worker 1':'Worker 2'))}
+function wname(w){return w==='o'?'Salah':w==='d'?'Kaylyn':(S.workers[w]||(w==='a'?'Worker 1':'Worker 2'))}
 function newId(){return 'j'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 function can(){return !!S.db&&S.canWrite}
 function note(t,k){const n=$('#status-note');if(!t){n.hidden=true;return}n.hidden=false;n.textContent=t;n.dataset.kind=k||''}
 function what(j){return [j.brand,j.appliance].filter(Boolean).join(' ')+(j.problem?' · '+j.problem:'')}
 function nowIso(){return new Date().toISOString()}
+function staff(){return S.owner||S.disp}
+
+/* ---------- Ready, lates and suspensions ---------- */
+const LATE_START='2026-11-17';   // lates count from this day on
+const LATE_AT=8*60+10;           // after 8:10 am (New York time) is late
+const NYF=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
+function ny(d){const p=Object.fromEntries(NYF.formatToParts(d).map(x=>[x.type,x.value]));const h=Number(p.hour)%24;return {ymd:`${p.year}-${p.month}-${p.day}`,min:h*60+Number(p.minute)}}
+function todayNY(){return ny(new Date()).ymd}
+function hhmm(min){const h=Math.floor(min/60),m=min%60;return `${(h%12)||12}:${String(m).padStart(2,'0')} ${h<12?'am':'pm'}`}
+/* A Ready tap counts only on the New York day it was made (the time comes from Google's server, not the phone) */
+function readyOf(w,d){const r=S.readyDocs.get(w+'_'+d);if(!r||!r.at)return null;const t=ny(r.at);if(t.ymd!==d)return null;return {min:t.min,late:t.min>LATE_AT}}
+/* A day counts only if the worker had a job that day (or tapped Ready) */
+function workedOn(w,d){return all().some(j=>j.worker===w&&(j.date===d||(j.visits||[]).some(v=>v.date===d&&v.worker===w)))}
+function lateInfo(w){
+  const today=todayNY(),out={lates:[],count:0,suspended:new Set(),missing:[],pending:[]};let n=0;
+  for(let d=LATE_START,i=0;d<=today&&i<500;d=addDays(d,1),i++){
+    const r=readyOf(w,d),ex=S.excuses.get(w+'_'+d);
+    if(!r&&!workedOn(w,d))continue;
+    let late=false,kind='';
+    if(r){if(r.late&&ex?.status!=='approved'){late=true;kind='late'}}
+    else if(d<today){
+      if(ex?.status==='approved'){}
+      else if(ex?.status==='pending')out.pending.push(d);
+      else{late=true;kind='notap';if(!ex)out.missing.push(d)}
+    }
+    if(late){out.lates.push({d,kind,min:r?.min});n++;if(n===3){out.suspended.add(addDays(d,1));n=0}}
+  }
+  out.count=n;return out}
+function suspendedOn(w,d){return W.includes(w)&&lateInfo(w).suspended.has(d)}
+
+/* ---------- Phone notifications (free ntfy app) ---------- */
+function sendPush(w,title,body){const t=S.topics&&S.topics[w];if(!t)return;
+  fetch('https://ntfy.sh/'+encodeURIComponent(t),{method:'POST',headers:{'Title':title,'Tags':'wrench','Click':'https://the-fennec.com/jobs/'},body}).catch(()=>{})}
+function town(a){const p=String(a||'').split(',').map(x=>x.trim()).filter(Boolean);return p.length>1?p[p.length-1]:''}
+function jobLine(j,date,slot){return [fmt(date,{weekday:'short',month:'short',day:'numeric'}),SL[slot].label+' '+SL[slot].time.replace(/–/g,'-'),[j.brand,j.appliance].filter(Boolean).join(' '),town(j.address)].filter(Boolean).join(' - ')}
+function selfKey(){return S.owner?'o':(S.me||null)}
+function pushJob(w,j,date,slot,kind){if(!w||w===selfKey()||!SL[slot])return;sendPush(w,(kind||'New job')+' for '+wname(w),jobLine(j,date,slot))}
+function newTopic(){const a=new Uint8Array(12);crypto.getRandomValues(a);return 'fennec-'+[...a].map(x=>x.toString(36).padStart(2,'0')).join('').slice(0,18)}
 
 /* ---------- render ---------- */
 function render(){
@@ -329,17 +388,52 @@ function render(){
 
   const waiting=all().filter(j=>j.status==='part').sort((x,y)=>(x.partStatus==='arrived'?0:1)-(y.partStatus==='arrived'?0:1)||(x.partOrdered||'').localeCompare(y.partOrdered||''));
   $('#plist').innerHTML=waiting.length?waiting.map(pcard).join(''):'<p class="none">No jobs waiting for parts. When a job needs a part, tap “Needs part” on it and it shows up here.</p>';
+  renderReady();
   renderLost();
   renderMoney();
+  renderNotif();
 }
 
+function renderReady(){
+  const s=$('#ready-sec');if(!S.db){s.hidden=true;return}
+  const today=todayNY();
+  if(S.me){const w=S.me,r=readyOf(w,today),li=lateInfo(w),sus=li.suspended.has(today);s.hidden=false;
+    let h=r?`<div class="rrow"><span class="ok">✓ Ready at ${hhmm(r.min)}</span>${r.late?'<span class="tag late">Late</span>':''}</div>`
+           :`<button class="btn primary big" data-ready="1">Ready</button><p class="sub">Tap by 8:10 am. After 8:10 counts as late.</p>`;
+    h+=`<p class="sub">Lates: <b>${li.count}</b> of 3. Every 3 lates = no new jobs the next day.</p>`;
+    if(sus)h+=`<p class="warnline">You are suspended today: no new jobs can be booked for you.</p>`;
+    li.missing.slice(-5).forEach(d=>{h+=`<div class="excuse"><p><b>You didn't tap Ready on ${fmt(d,{weekday:'long',month:'short',day:'numeric'})}.</b> Why?</p><textarea id="ex-${d}" placeholder="Write the reason for Salah"></textarea><button class="btn sm primary" data-excuse="${d}">Send to Salah</button></div>`});
+    li.pending.forEach(d=>{h+=`<p class="sub">Your reason for ${fmt(d,{weekday:'short',month:'short',day:'numeric'})} is waiting for Salah.</p>`});
+    s.innerHTML=`<h3>Good morning, ${esc(wname(w))}</h3>${h}`;return}
+  if(!staff()){s.hidden=true;return}
+  s.hidden=false;const d=S.day;let rows='',extra='';
+  W.forEach(w=>{const r=readyOf(w,d),li=lateInfo(w),sus=li.suspended.has(d),worked=workedOn(w,d);
+    const st=r?`<span class="ok">✓ ${hhmm(r.min)}</span>${r.late?'<span class="tag late">Late</span>':''}`
+      :(d>today?'<span class="sub">Not yet</span>':(d===today?'<span class="no">Not ready yet</span>':(worked?'<span class="no">No tap</span>':'<span class="sub">No jobs that day</span>')));
+    rows+=`<div class="rrow"><b>${esc(wname(w))}</b>${st}<span class="sub">${li.count} late${li.count===1?'':'s'}${li.count===2?' · 1 more = no new jobs':''}</span>${sus?'<span class="tag late">Suspended: no new jobs</span>':''}</div>`;
+    if(S.owner){
+      li.pending.forEach(dd=>{const ex=S.excuses.get(w+'_'+dd)||{};extra+=`<div class="excuse"><p><b>${esc(wname(w))}</b> didn't tap Ready on ${fmt(dd,{weekday:'short',month:'short',day:'numeric'})}: “${esc(ex.text)}”</p><div class="acts"><button class="btn sm donebtn" data-exok="${w}_${dd}">Approve</button><button class="btn sm danger" data-exno="${w}_${dd}">Reject</button></div></div>`});
+      li.lates.slice(-3).forEach(l=>{extra+=`<div class="rrow"><span class="sub">${esc(wname(w))} · ${fmt(l.d,{weekday:'short',month:'short',day:'numeric'})} · ${l.kind==='late'?'late, Ready at '+hhmm(l.min):'no tap, no reason'}</span><button class="btn sm ghost" data-clear="${w}_${l.d}">Clear this late</button></div>`});
+    }});
+  s.innerHTML=`<h3>Ready · ${d===today?'today':fmt(d,{weekday:'short',month:'short',day:'numeric'})}</h3>${rows}${extra?`<div class="rextra"><p class="sub"><b>Lates and reasons</b> · only you see this</p>${extra}</div>`:''}`}
+
+function renderNotif(){
+  const s=$('#notif-sec');const mine=S.owner?S.topics.o:(S.me?S.myTopic:'');
+  if(!S.db||!mine){s.hidden=true;return}s.hidden=false;
+  s.innerHTML=`<h3>Phone notifications</h3>
+  <ol><li>Install the free <b>ntfy</b> app (App Store or Google Play).</li>
+  <li>Open it, tap <b>+</b> and subscribe to this channel:<div class="topic">${esc(mine)}</div></li>
+  <li>Allow notifications when your phone asks.</li></ol>
+  <p class="sub">Keep this name private: anyone who has it can read your notifications.</p>
+  ${S.owner?`<p class="sub"><b>Workers' channels</b> (to set up their phones): ${W.map(w=>`${esc(wname(w))} <span class="topic">${esc(S.topics[w]||'')}</span>`).join(' ')}</p>`:''}`}
+
 function renderLost(){
-  const s=$('#lost-sec');if(!S.owner||!S.db){s.hidden=true;return}s.hidden=false;
+  const s=$('#lost-sec');if(!staff()||!S.db){s.hidden=true;return}s.hidden=false;
   const L=S.lost.get(S.day)||{count:0,note:''};const fee=L.fee??S.cfg.callFee;
   const house=all().filter(j=>j.status==='undone'&&j.date===S.day);const houseCost=house.reduce((t,j)=>{const m=money(j);return t+m.c+m.p-m.t},0);
   const total=(L.count||0)*fee+houseCost,count=(L.count||0)+house.length;
   if(document.activeElement&&document.activeElement.id==='lost-note'){s.querySelector('.ctr b').textContent=L.count||0;s.querySelector('.lost-cost').textContent=usd(total);return}
-  s.innerHTML=`<div class="lost-top"><div><h3>Lost calls · ${count}</h3><p class="sub">Tap + for each phone call that didn't become a visit.${house.length?` ${house.length} more from jobs marked “Lost call” at the house.`:''} Cost <b class="lost-cost">${usd(total)}</b>, split 3 ways: <b>${usd(total/3)}</b> each for you, ${esc(wname('a'))} and ${esc(wname('b'))} · only you see this</p></div>
+  s.innerHTML=`<div class="lost-top"><div><h3>Lost calls · ${count}</h3><p class="sub">Tap + for each phone call that didn't become a visit.${house.length?` ${house.length} more from jobs marked “Lost call” at the house.`:''}${S.owner?` Cost <b class="lost-cost">${usd(total)}</b>, split 3 ways: <b>${usd(total/3)}</b> each for you, ${esc(wname('a'))} and ${esc(wname('b'))} · only you and Kaylyn see this box`:'<b class="lost-cost" hidden></b>'}</p></div>
     <div class="ctr"><button class="btn" data-lost="-1" aria-label="One less lost call">−</button><b>${L.count||0}</b><button class="btn primary" data-lost="1" aria-label="One more lost call">+</button></div></div>
     <div class="field"><label for="lost-note">Why (optional)</label><input id="lost-note" value="${esc(L.note||'')}" placeholder="Price shopper, out of area, no answer…" autocomplete="off"></div>`;
   $('#lost-note').addEventListener('change',async e=>{const cur=S.lost.get(S.day)||{count:0};const note=e.target.value.trim();S.lost.set(S.day,{...cur,note});
@@ -422,15 +516,17 @@ function openFinish(j,kind){
 
 function empty(w,s){
   if(!can())return `<button class="empty" disabled>Free</button>`;
+  if(!s.f&&suspendedOn(w,S.day)){if(!S.owner)return `<button class="empty" disabled>Suspended today: no new jobs</button>`;
+    return `<button class="empty" data-act="add" data-w="${w}" data-s="${s.n}">+ Add new job (suspended today)</button>`}
   return `<button class="empty" data-act="${s.f?'fill':'add'}" data-w="${w}" data-s="${s.n}">${s.f?'+ Finish a job (part is here)':'+ Add new job'}</button>`}
 
 function card(j){
   const fin=SL[j.slot].f, done=j.status==='done', un=j.status==='undone';
   const acts=!can()?'':(done||un)
     ?(S.owner?`<button class="btn sm ghost" data-act="money" data-id="${j.id}">Edit money</button><button class="btn sm ghost" data-act="undo" data-id="${j.id}">Undo</button>`:`<span class="sub">Locked. Ask Salah to change it.</span>`)
-    :`<button class="btn sm donebtn" data-act="done" data-id="${j.id}">Done</button><button class="btn sm fin" data-act="needpart" data-id="${j.id}">${fin?'Needs another part':'Needs part'}</button><button class="btn sm ghost" data-act="undone" data-id="${j.id}">Lost call</button><button class="btn sm ghost" data-act="edit" data-id="${j.id}">Edit</button>`;
+    :S.disp?`<button class="btn sm ghost" data-act="edit" data-id="${j.id}">Edit</button>`:`<button class="btn sm donebtn" data-act="done" data-id="${j.id}">Done</button><button class="btn sm fin" data-act="needpart" data-id="${j.id}">${fin?'Needs another part':'Needs part'}</button><button class="btn sm ghost" data-act="undone" data-id="${j.id}">Lost call</button><button class="btn sm ghost" data-act="edit" data-id="${j.id}">Edit</button>`;
   let cash='';
-  if(done||un){const m=money(j);
+  if((done||un)&&!S.disp){const m=money(j);
     cash=`<div class="cash">${done?`<span>Charged <b>${usd(m.t)}</b></span>${m.dep?`<span>Deposit <b>${usd(m.dep)}</b></span>`:''}${m.p?`<span>Parts <b>${usd(m.p)}</b></span>`:''}`:''}${(!un&&j.worker==='o')?'':`<span>${un?'Split 3 ways, each pays':esc(wname(j.worker))+' gets'} <b class="${m.worker<0&&!un?'neg':''}">${usd(un?-m.worker:m.worker)}</b></span>`}${S.owner?`<span>Profit <b class="${m.profit<0?'neg':''}">${usd(m.profit)}</b></span>`:''}</div>${S.owner&&(j.history||[]).length>1?`<p class="sub neg">Money changed ${(j.history.length-1)} time${j.history.length>2?'s':''} after first save. First: charged ${usd(j.history[0].total)}, parts ${usd(j.history[0].parts)}</p>`:''}`}
   return `<article class="job${done?' done':''}${un?' undone':''}">
     <h4>${esc(j.customer||'No name')}${done?'<span class="tag dn">Done</span>':''}${un?'<span class="tag un">Lost call</span>':''}</h4>${cash}
@@ -480,6 +576,7 @@ function readPlace(self){
   if(!date)return showErr('Pick a day.'),null;
   if(!slot)return showErr(wname(w)+' is full at those times that day. Pick another day or the other worker.'),null;
   const t=at(date,w,slot);if(t&&t.id!==self)return showErr('Someone just took that time. Pick another.'),null;
+  if(!S.owner&&NEW.includes(slot)&&suspendedOn(w,date)){const old=self&&S.jobs.get(self);if(!(old&&old.date===date&&old.worker===w))return showErr(wname(w)+' is suspended that day: no new jobs. Pick another day or person.'),null}
   return {date,worker:w,slot}}
 
 function wireChips(){document.querySelectorAll('#f-appl button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#f-appl button').forEach(x=>x.setAttribute('aria-pressed',x===b));$('#f-appliance').value=b.dataset.v})}
@@ -513,6 +610,8 @@ function openJob(j,place){
     if(isNew||onB){const p=readPlace(j.id);if(!p)return;Object.assign(body,p)}
     const ok=isNew?await write(()=>S.db.collection('jobs').doc(newId()).set({...body,status:'booked',visits:[],createdAt:nowIso()}))
                   :await write(()=>S.db.collection('jobs').doc(j.id).update({...body,updatedAt:nowIso()}));
+    if(ok){if(isNew)pushJob(body.worker,body,body.date,body.slot,'New job');
+      else if(onB&&(body.worker!==j.worker||body.date!==j.date||body.slot!==j.slot))pushJob(body.worker,{...j,...body},body.date,body.slot,'Job moved')}
     ok?closeSheet():showErr('Could not save. Check the connection and try again.')};
 }
 
@@ -538,7 +637,7 @@ function openBook(j){
   wirePlace();$('#cancel-btn').onclick=closeSheet;
   $('#book-form').onsubmit=async e=>{e.preventDefault();const pl=readPlace(j.id);if(!pl)return;
     const ok=await write(()=>S.db.collection('jobs').doc(j.id).update({status:'booked',partStatus:'arrived',...pl,updatedAt:nowIso()}));
-    if(ok){closeSheet();S.day=pl.date;render()}else showErr('Could not save. Try again.')};
+    if(ok){pushJob(pl.worker,j,pl.date,pl.slot,'Finish visit');closeSheet();S.day=pl.date;render()}else showErr('Could not save. Try again.')};
 }
 
 function openFill(w,n){
@@ -550,6 +649,7 @@ function openFill(w,n){
   document.querySelectorAll('[data-pick]').forEach(b=>b.onclick=async()=>{const j=S.jobs.get(b.dataset.pick);if(!j)return;
     if(at(S.day,w,n))return showErr('Someone just took that time.');
     const ok=await write(()=>S.db.collection('jobs').doc(j.id).update({status:'booked',partStatus:'arrived',date:S.day,worker:w,slot:n,updatedAt:nowIso()}));
+    if(ok)pushJob(w,j,S.day,n,'Finish visit');
     ok?closeSheet():showErr('Could not save. Try again.')});
 }
 
@@ -591,10 +691,20 @@ document.addEventListener('click',async e=>{
   if(pb){if(!S.owner||!S.db)return;const d=parse(S.day),mon=addDays(S.day,-((d.getDay()+6)%7));const cur={...(S.pay.get(mon)||{})};const w=pb.dataset.pay;
     if(pb.dataset.undo){delete cur[w]}else{cur[w]={amount:Number(pb.dataset.amt)||0,on:ymd(new Date()),at:nowIso()}}
     S.pay.set(mon,cur);renderMoney();await write(()=>S.db.collection('pay').doc(mon).set(cur));return}
+  const rb=e.target.closest('[data-ready],[data-excuse],[data-exok],[data-exno],[data-clear]');
+  if(rb&&S.db){
+    if(rb.dataset.ready&&S.me){const d=todayNY();rb.disabled=true;
+      try{await setDoc(fsDoc(fs,'ready',S.me+'_'+d),{who:S.me,date:d,at:serverTimestamp()})}catch(x){note('Could not save Ready. Check the connection and tap again.','warn');rb.disabled=false}return}
+    if(rb.dataset.excuse&&S.me){const d=rb.dataset.excuse,text=($('#ex-'+d)||{}).value?.trim();if(!text){note('Write the reason first.','warn');return}
+      try{await setDoc(fsDoc(fs,'excuse',S.me+'_'+d),{who:S.me,date:d,text,status:'pending',at:serverTimestamp()});note('')}catch(x){note('Could not send. Try again.','warn')}return}
+    if(!S.owner)return;
+    const key=rb.dataset.exok||rb.dataset.exno||rb.dataset.clear,[w,d]=key.split('_');
+    try{if(rb.dataset.clear)await setDoc(fsDoc(fs,'excuse',key),{who:w,date:d,text:'Cleared by Salah',status:'approved',at:serverTimestamp()});
+      else await updateDoc(fsDoc(fs,'excuse',key),{status:rb.dataset.exok?'approved':'rejected'})}catch(x){note('Could not save. Try again.','warn')}return}
   const lb=e.target.closest('[data-lost]');
-  if(lb){if(!S.owner||!S.db)return;const cur=S.lost.get(S.day)||{count:0,note:''};const count=Math.max(0,(cur.count||0)+Number(lb.dataset.lost));
-    if(count===(cur.count||0))return;S.lost.set(S.day,{...cur,count,fee:S.cfg.callFee});renderLost();renderMoney();
-    await write(()=>S.db.collection('lost').doc(S.day).set({count,note:cur.note||'',fee:S.cfg.callFee,updatedAt:nowIso()}));return}
+  if(lb){if(!staff()||!S.db)return;const cur=S.lost.get(S.day)||{count:0,note:''};const count=Math.max(0,(cur.count||0)+Number(lb.dataset.lost));
+    if(count===(cur.count||0))return;const fee=S.owner?S.cfg.callFee:(cur.fee??S.cfg.callFee);S.lost.set(S.day,{...cur,count,fee});renderLost();renderMoney();
+    await write(()=>S.db.collection('lost').doc(S.day).set({count,note:cur.note||'',fee,updatedAt:nowIso()}));return}
   const b=e.target.closest('[data-act],[data-day],[data-show]');if(!b||b.disabled)return;
   if(b.dataset.show){S.show=b.dataset.show;try{localStorage.setItem('fennec-show',S.show)}catch(x){}render();return}
   if(b.dataset.day){S.day=b.dataset.day;render();return}
@@ -623,14 +733,15 @@ render();
 let unsubs=[],pick=null,publicNames={};
 function stopAll(){unsubs.forEach(u=>{try{u()}catch(e){}});unsubs=[]}
 function showLogin(){$('#login').hidden=false}
-/* Usernames (not case sensitive): salah, mohamed / worker1, mahdi / worker2 */
+/* Usernames (not case sensitive): salah, kaylyn (dispatcher), mohamed / worker1, mahdi / worker2 */
 function whoFromName(v){const n=v.trim().toLowerCase();if(!n)return null;
   if(n==='salah')return 'owner';
+  if(n==='kaylyn'||n==='dispatcher'||n==='dispatch')return 'd';
   if(n===(publicNames.a||'mohamed').toLowerCase()||n==='mohamed'||n==='worker1')return 'a';
   if(n===(publicNames.b||'mahdi').toLowerCase()||n==='mahdi'||n==='worker2')return 'b';
   return null}
 function setWho(){const w=$('#who');if(!S.db){w.hidden=true;return}w.hidden=false;
-  w.innerHTML=`Signed in as <b>${esc(S.owner?'Salah':wname(S.me))}</b> <button type="button" class="btn ghost sm" id="out-btn">Sign out</button>`;
+  w.innerHTML=`Signed in as <b>${esc(S.owner?'Salah':S.disp?'Kaylyn':wname(S.me))}</b> <button type="button" class="btn ghost sm" id="out-btn">Sign out</button>`;
   $('#out-btn').onclick=()=>signOut(auth)}
 ref('public/names').get().then(s=>{if(s.exists)publicNames=s.data()}).catch(()=>{});
 $('#login-form').onsubmit=async e=>{e.preventDefault();const err=$('#login-err');err.hidden=true;
@@ -645,10 +756,10 @@ $('#login-form').onsubmit=async e=>{e.preventDefault();const err=$('#login-err')
 
 onAuthStateChanged(auth,user=>{
   stopAll();closeSheet();
-  if(!user){S.db=null;S.owner=false;S.me=null;S.jobs=new Map();S.lost=new Map();S.pay=new Map();setWho();render();note('');showLogin();return}
+  if(!user){S.db=null;S.owner=false;S.disp=false;S.me=null;S.jobs=new Map();S.lost=new Map();S.pay=new Map();S.readyDocs=new Map();S.excuses=new Map();S.topics={};S.myTopic='';setWho();render();note('');showLogin();return}
   const email=(user.email||'').toLowerCase();
-  S.owner=email===PEOPLE.owner;S.me=email===PEOPLE.a?'a':(email===PEOPLE.b?'b':null);S.uid=user.uid;
-  if(!S.owner&&!S.me){signOut(auth);return}
+  S.owner=email===PEOPLE.owner;S.disp=email===PEOPLE.d;S.me=email===PEOPLE.a?'a':(email===PEOPLE.b?'b':null);S.uid=user.uid;
+  if(!S.owner&&!S.disp&&!S.me){signOut(auth);return}
   $('#login').hidden=true;S.db=DB;S.canWrite=true;
   if(S.me){let saved=null;try{saved=localStorage.getItem('fennec-show')}catch(e){}if(!saved)S.show=S.me}
   setWho();render();note('Loading jobs…');
@@ -661,18 +772,32 @@ onAuthStateChanged(auth,user=>{
     render();
   },()=>{clearTimeout(timer);note('The board stopped updating. Reload the page to reconnect.','warn')}));
   if(S.owner)unsubs.push(DB.collection('pay').onSnapshot(snap=>{S.pay=new Map(snap.docs.map(d=>[d.id,d.data()]));renderMoney()},()=>{}));
-  if(S.owner)unsubs.push(DB.collection('lost').onSnapshot(snap=>{S.lost=new Map(snap.docs.map(d=>[d.id,d.data()]));renderLost();renderMoney()},()=>{}));
+  /* Ready taps and reasons */
+  const rSrc=S.me?query(fsCol(fs,'ready'),where('who','==',S.me)):fsCol(fs,'ready');
+  unsubs.push(onSnapshot(rSrc,snap=>{S.readyDocs=new Map(snap.docs.map(d=>{const x=d.data({serverTimestamps:'estimate'});return [d.id,{...x,at:x.at&&x.at.toDate?x.at.toDate():null}]}));render()},()=>{}));
+  const eSrc=S.me?query(fsCol(fs,'excuse'),where('who','==',S.me)):fsCol(fs,'excuse');
+  unsubs.push(onSnapshot(eSrc,snap=>{S.excuses=new Map(snap.docs.map(d=>[d.id,d.data()]));render()},()=>{}));
+  /* Notification channels: Salah and Kaylyn need everyone's to send "new job" pushes */
+  if(staff())unsubs.push(DB.doc('notify/topics').onSnapshot(s=>{
+    if(s.exists){S.topics=s.data()||{};if(S.owner)['a','b'].forEach(w=>{if(S.topics[w])DB.doc('team/'+w).update({topic:S.topics[w]}).catch(()=>{})});render()}
+    else if(S.owner){DB.doc('notify/topics').set({o:newTopic(),a:newTopic(),b:newTopic()}).catch(()=>{})}},()=>{}));
+  if(S.disp){
+    unsubs.push(DB.doc('public/names').onSnapshot(s=>{if(s.exists){const d=s.data();S.workers={a:d.a||'Mohamed',b:d.b||'Mahdi'};render()}},()=>{}));
+    unsubs.push(DB.doc('team/d').onSnapshot(s=>{if(s.exists){const d=s.data();S.cfg={...S.cfg,callFee:d.callFee??65}}},()=>{}));
+  }
+  if(staff())unsubs.push(DB.collection('lost').onSnapshot(snap=>{S.lost=new Map(snap.docs.map(d=>[d.id,d.data()]));renderLost();renderMoney()},()=>{}));
   if(S.owner)unsubs.push(DB.doc('config/workers').onSnapshot(s=>{
     if(s.exists){const d=s.data();S.workers={a:d.a||'Mohamed',b:d.b||'Mahdi'};
       S.cfg={callFee:d.callFee??65,pctA:d.pctA??50,pctB:d.pctB??35,undonePct:d.undonePct??75};setWho();render();
       DB.doc('public/names').set({a:S.workers.a,b:S.workers.b}).catch(()=>{});
-      DB.doc('team/a').set({name:S.workers.a,pct:S.cfg.pctA,callFee:S.cfg.callFee}).catch(()=>{});
-      DB.doc('team/b').set({name:S.workers.b,pct:S.cfg.pctB,callFee:S.cfg.callFee}).catch(()=>{})}
+      DB.doc('team/a').set({name:S.workers.a,pct:S.cfg.pctA,callFee:S.cfg.callFee,topic:S.topics.a||''}).catch(()=>{});
+      DB.doc('team/b').set({name:S.workers.b,pct:S.cfg.pctB,callFee:S.cfg.callFee,topic:S.topics.b||''}).catch(()=>{});
+      DB.doc('team/d').set({name:'Kaylyn',callFee:S.cfg.callFee}).catch(()=>{})}
     else{DB.doc('config/workers').set({a:'Mohamed',b:'Mahdi',pctA:50,pctB:35,undonePct:75,callFee:65}).catch(()=>{})}
   },()=>{}));
   if(S.me){
     unsubs.push(DB.doc('public/names').onSnapshot(s=>{if(s.exists){const d=s.data();S.workers={a:d.a||'Mohamed',b:d.b||'Mahdi'};setWho();render()}},()=>{}));
-    unsubs.push(DB.doc('team/'+S.me).onSnapshot(s=>{if(s.exists){const d=s.data();S.cfg={...S.cfg,callFee:d.callFee??65,[S.me==='a'?'pctA':'pctB']:d.pct??S.cfg[S.me==='a'?'pctA':'pctB']};render()}},()=>{}));
+    unsubs.push(DB.doc('team/'+S.me).onSnapshot(s=>{if(s.exists){const d=s.data();S.myTopic=d.topic||'';S.cfg={...S.cfg,callFee:d.callFee??65,[S.me==='a'?'pctA':'pctB']:d.pct??S.cfg[S.me==='a'?'pctA':'pctB']};render()}},()=>{}));
   }
 });
 </script>
