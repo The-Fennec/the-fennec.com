@@ -15,6 +15,9 @@ service cloud.firestore {
       return (request.time.hours() * 60 + request.time.minutes() >= 710 && request.time.hours() * 60 + request.time.minutes() <= 730)
         || (request.time.hours() * 60 + request.time.minutes() >= 770 && request.time.hours() * 60 + request.time.minutes() <= 790);
     }
+    // Today's date (the Ready window is in the morning, so the UTC date is the New York date)
+    function pad2(n) { return n < 10 ? '0' + string(n) : string(n); }
+    function todayStr() { return string(request.time.year()) + '-' + pad2(request.time.month()) + '-' + pad2(request.time.day()); }
     function closedStatus(d) { return d.get('status', '') in ['done', 'undone']; }
     // When a worker closes a job, the call fee and his % must match Salah's settings.
     function moneyOk(d) {
@@ -39,13 +42,14 @@ service cloud.firestore {
     // The robot marks each timed message as sent so it goes out once a day
     match /sent/{docId} { allow read: if isOwner() || isBot(); allow create: if isOwner() || isBot(); allow update, delete: if isOwner(); }
 
-    // Morning Ready tap: a worker can tap once per day for himself, with Google's server time. Nobody but Salah can change it.
+    // Morning Ready tap: a worker can tap once, for today only, for himself, with Google's server time. Nobody but Salah can change it.
     match /ready/{readyId} {
       allow read: if isStaff() || isBot() || (isWorker() && resource.data.who == myLetter());
       allow create: if isWorker() && request.resource.data.who == myLetter()
         && readyId == myLetter() + '_' + request.resource.data.date
         && request.resource.data.at == request.time
         && readyWindow()
+        && request.resource.data.date == todayStr()
         && request.resource.data.keys().hasOnly(['who', 'date', 'at']);
       allow update, delete: if isOwner();
     }
