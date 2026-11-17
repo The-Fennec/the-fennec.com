@@ -107,7 +107,7 @@ async function main() {
       const ok = r && r.at instanceof Date && ny(r.at).ymd === today;
       if (!ok) notReady.push(name(w));
     }
-    if (notReady.length) await push(topics.o, 'Not ready yet: ' + notReady.join(' and '), `${notReady.join(' and ')} ${notReady.length > 1 ? "haven't" : "hasn't"} tapped Ready (8:01 am). After 8:10 it counts as late.`, 'warning');
+    if (notReady.length) await push(topics.o, 'Not ready yet: ' + notReady.join(' and '), `${notReady.join(' and ')} ${notReady.length > 1 ? "haven't" : "hasn't"} tapped Ready (8:01 am). Ready closes at 8:10.`, 'warning');
     else console.log('Everyone with jobs today is ready.');
   }
 
@@ -117,7 +117,7 @@ async function main() {
       const list = jobs.filter(j => j.worker === w && j.date === tomorrow && j.status === 'booked' && SLOTS[j.slot]).sort((x, y) => x.slot - y.slot);
       if (!list.length) continue;
       const lines = list.map(j => [SLOTS[j.slot][1], SLOTS[j.slot][0], [j.brand, j.appliance].filter(Boolean).join(' '), town(j.address)].filter(Boolean).join(' - '));
-      const body = lines.join('\n') + (w === 'o' ? '' : '\nTap Ready by 8:10 am.');
+      const body = lines.join('\n') + (w === 'o' ? '' : '\nTap Ready between 7:50 and 8:10 am.');
       await push(topics[w], `Tomorrow ${niceDay(tomorrow)}: ${list.length} job${list.length > 1 ? 's' : ''}`, body, 'calendar');
     }
   }

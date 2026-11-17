@@ -10,6 +10,11 @@ service cloud.firestore {
     function isStaff() { return isOwner() || isDisp(); }
     function myLetter() { return email() == 'worker1@the-fennec.com' ? 'a' : (email() == 'worker2@the-fennec.com' ? 'b' : (email() == 'dispatch@the-fennec.com' ? 'd' : 'none')); }
     function cfg() { return get(/databases/$(database)/documents/config/workers).data; }
+    // Ready window 7:50-8:10 am New York (11:50-12:10 UTC in summer, 12:50-13:10 UTC in winter)
+    function readyWindow() {
+      return (request.time.hours() * 60 + request.time.minutes() >= 710 && request.time.hours() * 60 + request.time.minutes() <= 730)
+        || (request.time.hours() * 60 + request.time.minutes() >= 770 && request.time.hours() * 60 + request.time.minutes() <= 790);
+    }
     function closedStatus(d) { return d.get('status', '') in ['done', 'undone']; }
     // When a worker closes a job, the call fee and his % must match Salah's settings.
     function moneyOk(d) {
@@ -40,6 +45,7 @@ service cloud.firestore {
       allow create: if isWorker() && request.resource.data.who == myLetter()
         && readyId == myLetter() + '_' + request.resource.data.date
         && request.resource.data.at == request.time
+        && readyWindow()
         && request.resource.data.keys().hasOnly(['who', 'date', 'at']);
       allow update, delete: if isOwner();
     }

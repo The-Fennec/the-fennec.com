@@ -329,13 +329,16 @@ function staff(){return S.owner||S.disp}
 
 /* ---------- Ready, lates and suspensions ---------- */
 const LATE_START='2026-11-17';   // lates count from this day on
-const LATE_AT=8*60+10;           // after 8:10 am (New York time) is late
+const OPEN_AT=7*60+50;           // Ready can be tapped from 7:50 am (New York time)
+const LATE_AT=8*60+10;           // ...until 8:10 am. No tap in that window counts as a late
 const NYF=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
 function ny(d){const p=Object.fromEntries(NYF.formatToParts(d).map(x=>[x.type,x.value]));const h=Number(p.hour)%24;return {ymd:`${p.year}-${p.month}-${p.day}`,min:h*60+Number(p.minute)}}
 function todayNY(){return ny(new Date()).ymd}
+function nowMinNY(){return ny(new Date()).min}
+function readyOpen(){const m=nowMinNY();return m>=OPEN_AT&&m<=LATE_AT}
 function hhmm(min){const h=Math.floor(min/60),m=min%60;return `${(h%12)||12}:${String(m).padStart(2,'0')} ${h<12?'am':'pm'}`}
 /* A Ready tap counts only on the New York day it was made (the time comes from Google's server, not the phone) */
-function readyOf(w,d){const r=S.readyDocs.get(w+'_'+d);if(!r||!r.at)return null;const t=ny(r.at);if(t.ymd!==d)return null;return {min:t.min,late:t.min>LATE_AT}}
+function readyOf(w,d){const r=S.readyDocs.get(w+'_'+d);if(!r||!r.at)return null;const t=ny(r.at);if(t.ymd!==d||t.min<OPEN_AT||t.min>LATE_AT)return null;return {min:t.min,late:t.min>LATE_AT}}
 /* A day counts only if the worker had a job that day (or tapped Ready) */
 function workedOn(w,d){return all().some(j=>j.worker===w&&(j.date===d||(j.visits||[]).some(v=>v.date===d&&v.worker===w)))}
 function lateInfo(w){
@@ -345,7 +348,7 @@ function lateInfo(w){
     if(!r&&!workedOn(w,d))continue;
     let late=false,kind='';
     if(r){if(r.late&&ex?.status!=='approved'){late=true;kind='late'}}
-    else if(d<today){
+    else if(d<today||nowMinNY()>LATE_AT){
       if(ex?.status==='approved'){}
       else if(ex?.status==='pending')out.pending.push(d);
       else{late=true;kind='notap';if(!ex)out.missing.push(d)}
@@ -399,8 +402,10 @@ function renderReady(){
   const today=todayNY();
   if(S.me){const w=S.me,r=readyOf(w,today),li=lateInfo(w),sus=li.suspended.has(today);s.hidden=false;
     let h=r?`<div class="rrow"><span class="ok">✓ Ready at ${hhmm(r.min)}</span>${r.late?'<span class="tag late">Late</span>':''}</div>`
-           :`<button class="btn primary big" data-ready="1">Ready</button><p class="sub">Tap by 8:10 am. After 8:10 counts as late.</p>`;
-    h+=`<p class="sub">Lates: <b>${li.count}</b> of 3. Every 3 lates = no new jobs the next day.</p>`;
+           :(nowMinNY()<OPEN_AT?`<button class="btn big" disabled>Ready opens at 7:50 am</button><p class="sub">You can tap Ready from 7:50 to 8:10 am.</p>`
+           :(readyOpen()?`<button class="btn primary big" data-ready="1">Ready</button><p class="sub">Tap before 8:10 am.</p>`
+           :`<p class="warnline">Ready closed at 8:10 am. You didn't tap today.</p>`));
+    h+=`<p class="sub">Lates: <b>${li.count}</b> of 3. No tap between 7:50 and 8:10 = 1 late (unless Salah approves your reason). Every 3 lates = no new jobs the next day.</p>`;
     if(sus)h+=`<p class="warnline">You are suspended today: no new jobs can be booked for you.</p>`;
     li.missing.slice(-5).forEach(d=>{h+=`<div class="excuse"><p><b>You didn't tap Ready on ${fmt(d,{weekday:'long',month:'short',day:'numeric'})}.</b> Why?</p><textarea id="ex-${d}" placeholder="Write the reason for Salah"></textarea><button class="btn sm primary" data-excuse="${d}">Send to Salah</button></div>`});
     li.pending.forEach(d=>{h+=`<p class="sub">Your reason for ${fmt(d,{weekday:'short',month:'short',day:'numeric'})} is waiting for Salah.</p>`});
@@ -409,7 +414,7 @@ function renderReady(){
   s.hidden=false;const d=S.day;let rows='',extra='';
   W.forEach(w=>{const r=readyOf(w,d),li=lateInfo(w),sus=li.suspended.has(d),worked=workedOn(w,d);
     const st=r?`<span class="ok">✓ ${hhmm(r.min)}</span>${r.late?'<span class="tag late">Late</span>':''}`
-      :(d>today?'<span class="sub">Not yet</span>':(d===today?'<span class="no">Not ready yet</span>':(worked?'<span class="no">No tap</span>':'<span class="sub">No jobs that day</span>')));
+      :(d>today?'<span class="sub">Not yet</span>':(d===today?(nowMinNY()>LATE_AT&&worked?'<span class="no">Missed (no tap by 8:10)</span>':'<span class="no">Not ready yet</span>'):(worked?'<span class="no">No tap</span>':'<span class="sub">No jobs that day</span>')));
     rows+=`<div class="rrow"><b>${esc(wname(w))}</b>${st}<span class="sub">${li.count} late${li.count===1?'':'s'}${li.count===2?' · 1 more = no new jobs':''}</span>${sus?'<span class="tag late">Suspended: no new jobs</span>':''}</div>`;
     if(S.owner){
       li.pending.forEach(dd=>{const ex=S.excuses.get(w+'_'+dd)||{};extra+=`<div class="excuse"><p><b>${esc(wname(w))}</b> didn't tap Ready on ${fmt(dd,{weekday:'short',month:'short',day:'numeric'})}: “${esc(ex.text)}”</p><div class="acts"><button class="btn sm donebtn" data-exok="${w}_${dd}">Approve</button><button class="btn sm danger" data-exno="${w}_${dd}">Reject</button></div></div>`});
@@ -693,7 +698,7 @@ document.addEventListener('click',async e=>{
     S.pay.set(mon,cur);renderMoney();await write(()=>S.db.collection('pay').doc(mon).set(cur));return}
   const rb=e.target.closest('[data-ready],[data-excuse],[data-exok],[data-exno],[data-clear]');
   if(rb&&S.db){
-    if(rb.dataset.ready&&S.me){const d=todayNY();rb.disabled=true;
+    if(rb.dataset.ready&&S.me){const d=todayNY();if(!readyOpen()){note('Ready can only be tapped from 7:50 to 8:10 am.','warn');renderReady();return}rb.disabled=true;
       try{await setDoc(fsDoc(fs,'ready',S.me+'_'+d),{who:S.me,date:d,at:serverTimestamp()})}catch(x){note('Could not save Ready. Check the connection and tap again.','warn');rb.disabled=false}return}
     if(rb.dataset.excuse&&S.me){const d=rb.dataset.excuse,text=($('#ex-'+d)||{}).value?.trim();if(!text){note('Write the reason first.','warn');return}
       try{await setDoc(fsDoc(fs,'excuse',S.me+'_'+d),{who:S.me,date:d,text,status:'pending',at:serverTimestamp()});note('')}catch(x){note('Could not send. Try again.','warn')}return}
@@ -754,6 +759,9 @@ $('#login-form').onsubmit=async e=>{e.preventDefault();const err=$('#login-err')
   catch(x){err.hidden=false;err.textContent=x.code==='auth/too-many-requests'?'Too many tries. Wait a few minutes and try again.':(x.code==='auth/network-request-failed'?'No internet connection.':'Wrong username or PIN.')}
   finally{$('#login-btn').disabled=false}};
 
+/* Open and close the Ready button on time (7:50 and 8:10) without wiping a reason being typed */
+let readyPhase='';setInterval(()=>{if(!S.db)return;const m=nowMinNY(),ph=todayNY()+(m<OPEN_AT?0:(m<=LATE_AT?1:2));
+  if(ph===readyPhase)return;if(document.activeElement&&$('#ready-sec').contains(document.activeElement))return;readyPhase=ph;renderReady()},15000);
 onAuthStateChanged(auth,user=>{
   stopAll();closeSheet();
   if(!user){S.db=null;S.owner=false;S.disp=false;S.me=null;S.jobs=new Map();S.lost=new Map();S.pay=new Map();S.readyDocs=new Map();S.excuses=new Map();S.topics={};S.myTopic='';setWho();render();note('');showLogin();return}
